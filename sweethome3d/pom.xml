@@ -40,6 +40,37 @@
                 </excludes>
             </resource>
         </resources>
+        <plugins> 
+            <plugin>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>2.4</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <phase>deploy</phase>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals> 
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin> 
+                <!-- explicitly define maven-deploy-plugin after other to force exec order 
+                http://stackoverflow.com/a/4725728/3315914
+                -->
+                <artifactId>maven-deploy-plugin</artifactId>
+                <version>2.8.2</version>
+                <executions> 
+                    <execution> 
+                        <id>deploy</id>
+                        <phase>deploy</phase>
+                        <goals>
+                            <goal>deploy</goal>
+                        </goals> 
+                    </execution> 
+                </executions> 
+            </plugin>
+        </plugins> 
     </build>
     <dependencies>
         <dependency>
