@@ -29,7 +29,7 @@
 	</distributionManagement>
 	<scm>
 		<url>http://www.sweethome3d.com/</url>
-		<connection>scm:git:git://github.com/rpax/sweethome3d.git</connection>
+		<connection>scm:git://github.com/rpax/sweethome3d.git</connection>
 		<developerConnection>scm:git:git@github.com:rpax/sweethome3d.git</developerConnection>
 	</scm>
 	<developers>
