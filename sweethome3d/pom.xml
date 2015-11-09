@@ -26,6 +26,10 @@
 			<id>snapshots</id>
 			<url>http://mvn.massisframework.com/nexus/content/repositories/snapshots</url>
 		</snapshotRepository>
+		<repository>
+		<id>releases</id>
+		<url>http://mvn.massisframework.com/nexus/content/repositories/releases</url>
+		</repository>
 	</distributionManagement>
 	<scm>
 		<connection>scm:git:git@github.com:rpax/sweethome3d</connection>
