@@ -28,9 +28,9 @@
 		</snapshotRepository>
 	</distributionManagement>
 	<scm>
-		<url>http://www.sweethome3d.com/</url>
-		<connection>scm:git://github.com/rpax/sweethome3d.git</connection>
-		<developerConnection>scm:git:git@github.com:rpax/sweethome3d.git</developerConnection>
+		<connection>scm:git:git@github.com:rpax/sweethome3d</connection>
+		<url>scm:git:git@github.com:rpax/sweethome3d</url>
+		<developerConnection>scm:git:git@github.com:rpax/sweethome3d</developerConnection>
 	</scm>
 	<developers>
 		<developer>
@@ -76,6 +76,11 @@
 			</resource>
 		</resources>
 		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-release-plugin</artifactId>
+				<version>2.5.3</version>
+			</plugin>
 			<plugin>
 				<artifactId>maven-source-plugin</artifactId>
 				<version>2.4</version>
