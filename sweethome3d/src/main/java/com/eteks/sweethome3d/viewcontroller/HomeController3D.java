@@ -869,7 +869,7 @@ public class HomeController3D implements Controller {
     @Override
     public void rotateCameraPitch(float delta) {
       float newPitch = this.observerCamera.getPitch() + delta; 
-      // Check new angle is between -90\B0 and 90\B0  
+      // Check new angle is between -90° and 90°  
       newPitch = Math.max(newPitch, -(float)Math.PI / 2);
       newPitch = Math.min(newPitch, (float)Math.PI / 2);
       this.observerCamera.setPitch(newPitch); 
