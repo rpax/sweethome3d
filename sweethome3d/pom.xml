@@ -1,10 +1,9 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>com.eteks</groupId>
 	<artifactId>sweethome3d</artifactId>
-	<version>5.1-SNAPSHOT</version>
+	<version>5.1</version>
 	<packaging>jar</packaging>
 
 	<name>sweethome3d</name>
@@ -31,7 +30,8 @@
 		<connection>scm:git:git@github.com:rpax/sweethome3d</connection>
 		<url>scm:git:git@github.com:rpax/sweethome3d</url>
 		<developerConnection>scm:git:git@github.com:rpax/sweethome3d</developerConnection>
-	</scm>
+	  <tag>sweethome3d-5.1</tag>
+  </scm>
 	<developers>
 		<developer>
 			<email>info@eteks.com</email>
@@ -121,7 +121,7 @@
 		<dependency>
 			<groupId>javax.jnlp</groupId>
 			<artifactId>jnlp-api</artifactId>
-			<version>7.0-SNAPSHOT</version>
+			<version>7.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.scijava</groupId>
@@ -141,12 +141,12 @@
 		<dependency>
 			<groupId>com.massisframework</groupId>
 			<artifactId>sweethome3d-sunflow</artifactId>
-			<version>0.07.3i-SNAPSHOT</version>
+			<version>0.07.3i</version>
 		</dependency>
 		<dependency>
 			<groupId>com.massisframework</groupId>
 			<artifactId>sweethome3d-AppleJavaExtensions</artifactId>
-			<version>1.4-SNAPSHOT</version>
+			<version>1.4</version>
 		</dependency>
 		<dependency>
 			<groupId>org.freehep</groupId>
