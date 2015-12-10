@@ -3,7 +3,7 @@
 
 	<groupId>com.eteks</groupId>
 	<artifactId>sweethome3d</artifactId>
-	<version>5.2-SNAPSHOT</version>
+	<version>5.1.1-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
 	<name>sweethome3d</name>
