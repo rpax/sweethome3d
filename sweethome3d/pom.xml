@@ -9,7 +9,7 @@
 
 	<name>sweethome3d</name>
 	<url>http://www.sweethome3d.com</url>
-	
+
 	<properties>
 		<project.build.sourceEncoding>ISO-8859-1</project.build.sourceEncoding>
 		<maven.compiler.source>1.7</maven.compiler.source>
@@ -95,6 +95,18 @@
 				</executions>
 			</plugin>
 			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-javadoc-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>attach-javadocs</id>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
 				<!-- explicitly define maven-deploy-plugin after other to force exec 
 					order http://stackoverflow.com/a/4725728/3315914 -->
 				<artifactId>maven-deploy-plugin</artifactId>
@@ -118,8 +130,6 @@
 			<version>3.8.1</version>
 			<scope>test</scope>
 		</dependency>
-		<!-- <dependency> <groupId>javax.jnlp</groupId> <artifactId>jnlp-api</artifactId> 
-			<version>7.0</version> </dependency> -->
 		<dependency>
 			<groupId>org.jvnet.hudson</groupId>
 			<artifactId>netx</artifactId>
