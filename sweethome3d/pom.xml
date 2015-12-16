@@ -81,6 +81,17 @@
 			</resource>
 		</resources>
 		<plugins>
+		
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.1</version>
+                <configuration>
+                   
+                    <encoding>ISO-8859-1</encoding>
+                </configuration>
+            </plugin>
+       
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-release-plugin</artifactId>
@@ -144,12 +155,11 @@
 			<artifactId>j3dutils</artifactId>
 			<version>1.6.0-scijava-1</version>
 		</dependency>
-		<dependency>
+		<!-- <dependency>
 			<groupId>com.massisframework</groupId>
 			<artifactId>sweethome3d-sunflow</artifactId>
 			<version>0.07.3i</version>
-		</dependency>
-		
+		</dependency>-->
 	<!-- 	<dependency>
 			<groupId>com.massisframework</groupId>
 			<artifactId>sweethome3d-AppleJavaExtensions</artifactId>
@@ -203,7 +213,6 @@
 			</exclusions>
 		</dependency>
 		<!-- -->
-
 		<dependency>
 			<groupId>com.lowagie</groupId>
 			<artifactId>itext</artifactId>
