@@ -9,7 +9,7 @@
 
 	<name>sweethome3d</name>
 	<url>http://www.sweethome3d.com</url>
-	<repositories>
+<repositories>
 		<repository>
 			<id>nexus-massisframework</id>
 			<name>nexus-massisframework repository</name>
@@ -134,12 +134,11 @@
 			<version>3.8.1</version>
 			<scope>test</scope>
 		</dependency>
-		<dependency>
+		 <dependency>
 			<groupId>javax.jnlp</groupId>
 			<artifactId>jnlp-api</artifactId>
 			<version>7.0</version>
 		</dependency>
-
 		<dependency>
 			<groupId>org.scijava</groupId>
 			<artifactId>j3dcore</artifactId>
