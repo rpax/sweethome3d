@@ -9,13 +9,7 @@
 
 	<name>sweethome3d</name>
 	<url>http://www.sweethome3d.com</url>
-	<repositories>
-		<repository>
-			<id>nexus-massisframework</id>
-			<name>nexus-massisframework repository</name>
-			<url>http://mvn.massisframework.com/nexus/content/groups/public</url>
-		</repository>
-	</repositories>
+	
 	<properties>
 		<project.build.sourceEncoding>ISO-8859-1</project.build.sourceEncoding>
 		<maven.compiler.source>1.7</maven.compiler.source>
