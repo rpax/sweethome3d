@@ -64,13 +64,11 @@ import javax.swing.event.MenuEvent;
 import javax.swing.event.MenuListener;
 import javax.swing.event.MouseInputAdapter;
 
-import com.apple.eawt.AppEvent.FullScreenEvent;
-import com.apple.eawt.Application;
-import com.apple.eawt.ApplicationAdapter;
-import com.apple.eawt.ApplicationEvent;
-import com.apple.eawt.FullScreenAdapter;
-import com.apple.eawt.FullScreenListener;
-import com.apple.eawt.FullScreenUtilities;
+import com.apple.*;
+import com.apple.eawt.*;
+import com.apple.eawt.event.*;
+import com.apple.concurrent.*;
+import com.apple.eio.*;
 import com.eteks.sweethome3d.model.CollectionEvent;
 import com.eteks.sweethome3d.model.CollectionListener;
 import com.eteks.sweethome3d.model.Home;
@@ -117,7 +115,7 @@ class MacOSXConfiguration {
         macosxApplication.setDefaultMenuBar(defaultMenuBar);
         addWindowMenu(null, defaultMenuBar, homeApplication, true);
       }
-    } catch (NoSuchMethodError ex) {
+    } catch (final NoSuchMethodError ex) {
       // Create default frame if setDefaultMenuBar isn't available
       frame = createDummyFrameWithDefaultMenuBar(homeApplication, defaultHomeView, defaultMenuBar);
     } 
@@ -130,7 +128,7 @@ class MacOSXConfiguration {
       public void handleQuit(ApplicationEvent ev) { 
         Home modifiedHome = null;
         int modifiedHomesCount = 0;
-        for (Home home : homeApplication.getHomes()) {
+        for (final Home home : homeApplication.getHomes()) {
           if (home.isModified()) {
             modifiedHome = home;
             modifiedHomesCount++;
@@ -142,8 +140,9 @@ class MacOSXConfiguration {
           homeApplication.getHomeFrame(modifiedHome).toFront();
           homeApplication.getHomeFrameController(modifiedHome).getHomeController().close(
               new Runnable() {
-                public void run() {
-                  for (Home home : homeApplication.getHomes()) {
+                @Override
+				public void run() {
+                  for (final Home home : homeApplication.getHomes()) {
                     if (home.isModified()) {
                       return;
                     }
@@ -153,7 +152,8 @@ class MacOSXConfiguration {
               });
         } else {
           handleAction(new Runnable() {
-              public void run() {
+              @Override
+			public void run() {
                 getHomeController().exit();
               }
             });
@@ -166,7 +166,8 @@ class MacOSXConfiguration {
       @Override
       public void handleAbout(ApplicationEvent ev) {
         handleAction(new Runnable() {
-            public void run() {
+            @Override
+			public void run() {
               getHomeController().about();
             }
           });
@@ -176,7 +177,8 @@ class MacOSXConfiguration {
       @Override
       public void handlePreferences(ApplicationEvent ev) {
         handleAction(new Runnable() {
-            public void run() {
+            @Override
+			public void run() {
               getHomeController().editPreferences();
             }
           });
@@ -184,9 +186,9 @@ class MacOSXConfiguration {
       
       private HomeController getHomeController() {
         if (defaultFrame != null) {
-          Frame activeFrame = getActiveFrame();
+          final Frame activeFrame = getActiveFrame();
           if (activeFrame != null) {
-            for (Home home : homeApplication.getHomes()) {
+            for (final Home home : homeApplication.getHomes()) {
               if (homeApplication.getHomeFrame(home) == activeFrame) {
                 return homeApplication.getHomeFrameController(home).getHomeController();
               }
@@ -198,7 +200,7 @@ class MacOSXConfiguration {
       
       private Frame getActiveFrame() {
         Frame activeFrame = null;
-        for (Frame frame : Frame.getFrames()) {
+        for (final Frame frame : Frame.getFrames()) {
           if (frame != defaultFrame && frame.isActive()) {
             activeFrame = frame;
             break;
@@ -208,7 +210,7 @@ class MacOSXConfiguration {
       }
 
       private void handleAction(Runnable runnable) {
-        Frame activeFrame = getActiveFrame();        
+        final Frame activeFrame = getActiveFrame();        
         if (defaultFrame != null && activeFrame == null) {
           // Move default frame to center to display dialogs at center
           defaultFrame.setLocationRelativeTo(null);
@@ -257,7 +259,8 @@ class MacOSXConfiguration {
     macosxApplication.setEnabledPreferencesMenu(true);
     
     homeApplication.addHomesListener(new CollectionListener<Home>() {
-      public void collectionChanged(CollectionEvent<Home> ev) {
+      @Override
+	public void collectionChanged(CollectionEvent<Home> ev) {
         if (ev.getType() == CollectionEvent.Type.ADD) {
           final JFrame homeFrame = homeApplication.getHomeFrame(ev.getItem());
           if (!Boolean.getBoolean("com.eteks.sweethome3d.no3D")
@@ -266,24 +269,27 @@ class MacOSXConfiguration {
             // while the frame canvas 3D is instantiated, forbid window to be resized
             homeFrame.setResizable(false);
             Executors.newSingleThreadExecutor().submit(new Runnable() {                
-                public void run() {
+                @Override
+				public void run() {
                   try {
                     final AtomicBoolean canvas3D = new AtomicBoolean();
                     do {
                       Thread.sleep(50);
                       EventQueue.invokeAndWait(new Runnable() {
-                          public void run() {
+                          @Override
+						public void run() {
                             canvas3D.set(homeFrame.isShowing()
                                 && isParentOfCanvas3D(homeFrame, Canvas3D.class, JCanvas3D.class));
                           }
                         });
                     } while (!canvas3D.get());                  
-                  } catch (InterruptedException ex) {
-                  } catch (InvocationTargetException ex) {
+                  } catch (final InterruptedException ex) {
+                  } catch (final InvocationTargetException ex) {
                     ex.printStackTrace();
                   } finally {
                     EventQueue.invokeLater(new Runnable() {
-                        public void run() {
+                        @Override
+						public void run() {
                           homeFrame.setResizable(true);
                         }
                       });
@@ -293,8 +299,8 @@ class MacOSXConfiguration {
                 private boolean isParentOfCanvas3D(Container parent, Class<?> ... canvas3DClasses) {
                   // Search 3D canvas among children and child windows in case the 3D view was detached
                   for (int i = 0; i < parent.getComponentCount(); i++) {
-                    Component child = parent.getComponent(i);
-                    for (Class<?> canvas3DClass : canvas3DClasses) {
+                    final Component child = parent.getComponent(i);
+                    for (final Class<?> canvas3DClass : canvas3DClasses) {
                       if (canvas3DClass.isInstance(child)
                           || child instanceof Container
                             && isParentOfCanvas3D((Container)child, canvas3DClasses)) {
@@ -303,7 +309,7 @@ class MacOSXConfiguration {
                     }
                   }
                   if (parent instanceof Window) {
-                    for (Window window : ((Window)parent).getOwnedWindows()) {
+                    for (final Window window : ((Window)parent).getOwnedWindows()) {
                       if (isParentOfCanvas3D(window, canvas3DClasses)) {
                         return true;
                       }
@@ -322,7 +328,7 @@ class MacOSXConfiguration {
             homeFrame.addWindowListener(new WindowAdapter() {
                 @Override
                 public void windowClosed(WindowEvent ev) {
-                  List<Home> homes = homeApplication.getHomes();
+                  final List<Home> homes = homeApplication.getHomes();
                   defaultFrame.setVisible(false);
                   defaultFrame.setVisible(true);
                   if (homes.size() > 0) {
@@ -345,12 +351,12 @@ class MacOSXConfiguration {
     // Set application icon if program wasn't launch from bundle
     if (!Boolean.getBoolean("sweethome3d.bundle")) {
       try {
-        String iconPath = homeApplication.getUserPreferences().getLocalizedString(HomePane.class, "about.icon");
-        Image icon = ImageIO.read(HomePane.class.getResource(iconPath));
+        final String iconPath = homeApplication.getUserPreferences().getLocalizedString(HomePane.class, "about.icon");
+        final Image icon = ImageIO.read(HomePane.class.getResource(iconPath));
         macosxApplication.setDockIconImage(icon);
-      } catch (NoSuchMethodError ex) {
+      } catch (final NoSuchMethodError ex) {
         // Ignore icon change if setDockIconImage isn't available
-      } catch (IOException ex) {
+      } catch (final IOException ex) {
       }
     }
   }
@@ -359,7 +365,7 @@ class MacOSXConfiguration {
    * Enables / disables default actions in the given view.
    */
   private static void setDefaultActionsEnabled(HomePane homeView, boolean enabled) {
-    for (HomePane.ActionType action : HomePane.ActionType.values()) {
+    for (final HomePane.ActionType action : HomePane.ActionType.values()) {
       switch (action) {
         case ABOUT :
         case NEW_HOME :
@@ -382,7 +388,8 @@ class MacOSXConfiguration {
                                                            final JMenuBar defaultMenuBar) {
     final JFrame frame = new JFrame();
     EventQueue.invokeLater(new Runnable() {
-        public void run() {
+        @Override
+		public void run() {
           // Create a default undecorated frame out of sight 
           // and attach the application menu bar of empty view to it
           frame.setLocation(-10, 0);
@@ -395,12 +402,14 @@ class MacOSXConfiguration {
         }
       });
     homeApplication.addHomesListener(new CollectionListener<Home>() {
-        public void collectionChanged(CollectionEvent<Home> ev) {
+        @Override
+		public void collectionChanged(CollectionEvent<Home> ev) {
           if (ev.getType() == CollectionEvent.Type.DELETE) {
             EventQueue.invokeLater(new Runnable() {
-                public void run() {
+                @Override
+				public void run() {
                   if (frame.isActive()) {
-                    List<Home> homes = homeApplication.getHomes();
+                    final List<Home> homes = homeApplication.getHomes();
                     if (homes.size() >= 1) {
                       // Request focus in a remaining home if the dummy frame is active 
                       homeApplication.getHomeFrame(homes.get(homes.size() - 1)).requestFocus();
@@ -421,7 +430,7 @@ class MacOSXConfiguration {
                                     final JMenuBar menuBar, 
                                     final SweetHome3D homeApplication,
                                     boolean defaultFrame) {
-    UserPreferences preferences = homeApplication.getUserPreferences();
+    final UserPreferences preferences = homeApplication.getUserPreferences();
     final JMenu windowMenu = new JMenu(
         new ResourceAction(preferences, MacOSXConfiguration.class, "WINDOW_MENU", true));
     // Add Window menu before Help menu
@@ -451,8 +460,8 @@ class MacOSXConfiguration {
             public void actionPerformed(ActionEvent ev) {
               // Avoid blinking while bringing other windows to front
               frame.setAlwaysOnTop(true);
-              for (Home home : homeApplication.getHomes()) {
-                JFrame applicationFrame = homeApplication.getHomeFrame(home);
+              for (final Home home : homeApplication.getHomes()) {
+                final JFrame applicationFrame = homeApplication.getHomeFrame(home);
                 if (applicationFrame != frame
                     && applicationFrame.getState() != JFrame.ICONIFIED) {
                   applicationFrame.setFocusableWindowState(false);
@@ -465,14 +474,16 @@ class MacOSXConfiguration {
           }));
     
     windowMenu.addMenuListener(new MenuListener() {
-        public void menuSelected(MenuEvent ev) {
+        @Override
+		public void menuSelected(MenuEvent ev) {
           boolean firstMenuItem = true;
           // Fill menu dynamically with a menu item for the frame of each application home
-          for (Home home : homeApplication.getHomes()) {
+          for (final Home home : homeApplication.getHomes()) {
             final JFrame applicationFrame = homeApplication.getHomeFrame(home);
-            JCheckBoxMenuItem windowMenuItem = new JCheckBoxMenuItem(
+            final JCheckBoxMenuItem windowMenuItem = new JCheckBoxMenuItem(
                 new AbstractAction(applicationFrame.getTitle()) {
-                    public void actionPerformed(ActionEvent ev) {
+                    @Override
+					public void actionPerformed(ActionEvent ev) {
                       applicationFrame.toFront();
                     }
                   });
@@ -488,14 +499,16 @@ class MacOSXConfiguration {
           }
         }
 
-        public void menuDeselected(MenuEvent ev) {
+        @Override
+		public void menuDeselected(MenuEvent ev) {
           // Remove dynamically filled part of menu
           for (int i = windowMenu.getMenuComponentCount() - 1; i >= 4; i--) {
             windowMenu.remove(i);
           }
         }
 
-        public void menuCanceled(MenuEvent ev) {
+        @Override
+		public void menuCanceled(MenuEvent ev) {
           menuDeselected(ev);
         }
       });
@@ -505,7 +518,7 @@ class MacOSXConfiguration {
    * Updates pane tool bar to integrate it with frame title under Mac OS X.
    */
   public static void installToolBar(final JRootPane rootPane) {
-    List<JToolBar> toolBars = SwingTools.findChildren(rootPane, JToolBar.class);
+    final List<JToolBar> toolBars = SwingTools.findChildren(rootPane, JToolBar.class);
     if (OperatingSystem.isJavaVersionGreaterOrEqual("1.7.0_12")
         && toolBars.size() == 1) {
       rootPane.putClientProperty("apple.awt.brushMetalLook", true);
@@ -519,7 +532,7 @@ class MacOSXConfiguration {
               ? new Color(209, 209, 209)
               : new Color(178, 178, 178);
           private final Color TOP_GRADIENT_COLOR_DEACTIVATED_FRAME  = new Color(244, 244, 244);
-          private final Color BOTTOM_GRADIENT_COLOR_DEACTIVATED_FRAME = TOP_GRADIENT_COLOR_ACTIVATED_FRAME;
+          private final Color BOTTOM_GRADIENT_COLOR_DEACTIVATED_FRAME = this.TOP_GRADIENT_COLOR_ACTIVATED_FRAME;
 
           @Override
           public boolean isBorderOpaque() {
@@ -534,12 +547,12 @@ class MacOSXConfiguration {
           @Override
           public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
             // Paint the tool bar with a gradient different if the frame is activated or not
-            Component root = SwingUtilities.getRoot(rootPane);
-            boolean active = ((JFrame)root).isActive();
+            final Component root = SwingUtilities.getRoot(rootPane);
+            final boolean active = ((JFrame)root).isActive();
             ((Graphics2D)g).setPaint(new GradientPaint(0, y, 
-                active ? TOP_GRADIENT_COLOR_ACTIVATED_FRAME : TOP_GRADIENT_COLOR_DEACTIVATED_FRAME, 
+                active ? this.TOP_GRADIENT_COLOR_ACTIVATED_FRAME : this.TOP_GRADIENT_COLOR_DEACTIVATED_FRAME, 
                 0, y + height - 1, 
-                active ? BOTTOM_GRADIENT_COLOR_ACTIVATED_FRAME : BOTTOM_GRADIENT_COLOR_DEACTIVATED_FRAME));
+                active ? this.BOTTOM_GRADIENT_COLOR_ACTIVATED_FRAME : this.BOTTOM_GRADIENT_COLOR_DEACTIVATED_FRAME));
             g.fillRect(x, y, x + width, y + height);
           }
         });
@@ -556,9 +569,9 @@ class MacOSXConfiguration {
     
           @Override
           public void mouseDragged(MouseEvent ev) {
-            Point newLocation = ev.getPoint();
+            final Point newLocation = ev.getPoint();
             SwingUtilities.convertPointToScreen(newLocation, ev.getComponent());
-            Component root = SwingUtilities.getRoot(rootPane);
+            final Component root = SwingUtilities.getRoot(rootPane);
             root.setLocation(root.getX() + newLocation.x - this.lastLocation.x, 
                 root.getY() + newLocation.y - this.lastLocation.y);
             this.lastLocation = newLocation;
@@ -570,7 +583,8 @@ class MacOSXConfiguration {
       toolBar.addAncestorListener(new AncestorListener() {
           private Object fullScreenListener;
 
-          public void ancestorAdded(AncestorEvent ev) {
+          @Override
+		public void ancestorAdded(AncestorEvent ev) {
             ((Window)SwingUtilities.getRoot(toolBar)).addWindowListener(new WindowAdapter() {
                 @Override
                 public void windowActivated(WindowEvent ev) {
@@ -584,49 +598,51 @@ class MacOSXConfiguration {
               });
             toolBar.repaint();
 
-            try {
-              Class fullScreenUtilitiesClass = Class.forName("com.apple.eawt.FullScreenUtilities");
-              this.fullScreenListener = new FullScreenAdapter() {
-                  public void windowEnteredFullScreen(FullScreenEvent ev) {
-                    fullScreen = true;
-                    toolBar.removeMouseListener(mouseListener);
-                    toolBar.removeMouseMotionListener(mouseListener);
-                  }
-                  
-                  public void windowExitedFullScreen(FullScreenEvent ev) {
-                    fullScreen = false;
-                    toolBar.addMouseListener(mouseListener);
-                    toolBar.addMouseMotionListener(mouseListener);
-                  }
-                };
-              FullScreenUtilities.addFullScreenListenerTo((Window)SwingUtilities.getRoot(rootPane), 
-                  (FullScreenListener)this.fullScreenListener);
-            } catch (ClassNotFoundException ex) {
-              // If FullScreenUtilities isn't supported, ignore mouse listener switch
-            }
+//            try {
+//              final Class fullScreenUtilitiesClass = Class.forName("com.apple.eawt.FullScreenUtilities");
+//              this.fullScreenListener = new FullScreenAdapter() {
+//                  public void windowEnteredFullScreen(FullScreenEvent ev) {
+//                    fullScreen = true;
+//                    toolBar.removeMouseListener(mouseListener);
+//                    toolBar.removeMouseMotionListener(mouseListener);
+//                  }
+//                  
+//                  public void windowExitedFullScreen(FullScreenEvent ev) {
+//                    fullScreen = false;
+//                    toolBar.addMouseListener(mouseListener);
+//                    toolBar.addMouseMotionListener(mouseListener);
+//                  }
+//                };
+//              FullScreenUtilities.addFullScreenListenerTo((Window)SwingUtilities.getRoot(rootPane), 
+//                  (FullScreenListener)this.fullScreenListener);
+//            } catch (final ClassNotFoundException ex) {
+//              // If FullScreenUtilities isn't supported, ignore mouse listener switch
+//            }
           }
   
-          public void ancestorMoved(AncestorEvent ev) {
+          @Override
+		public void ancestorMoved(AncestorEvent ev) {
           }
   
-          public void ancestorRemoved(AncestorEvent ev) {
+          @Override
+		public void ancestorRemoved(AncestorEvent ev) {
             toolBar.removeAncestorListener(this);
-            try {
-              Class fullScreenUtilitiesClass = Class.forName("com.apple.eawt.FullScreenUtilities");
-              FullScreenUtilities.removeFullScreenListenerFrom((Window)SwingUtilities.getRoot(rootPane), 
-                  (FullScreenListener)this.fullScreenListener);
-            } catch (ClassNotFoundException ex) {
-              // If FullScreenUtilities isn't supported, ignore mouse listener switch
-            }
+//            try {
+//              final Class fullScreenUtilitiesClass = Class.forName("com.apple.eawt.FullScreenUtilities");
+//              FullScreenUtilities.removeFullScreenListenerFrom((Window)SwingUtilities.getRoot(rootPane), 
+//                  (FullScreenListener)this.fullScreenListener);
+//            } catch (final ClassNotFoundException ex) {
+//              // If FullScreenUtilities isn't supported, ignore mouse listener switch
+//            }
           }
         });
       
       // Empty left, bottom and right borders of sibling split pane
-      List<JSplitPane> siblings = SwingTools.findChildren((JComponent)toolBar.getParent(), JSplitPane.class);
+      final List<JSplitPane> siblings = SwingTools.findChildren((JComponent)toolBar.getParent(), JSplitPane.class);
       if (siblings.size() >= 1) {
-        JComponent siblingComponent = siblings.get(0);
+        final JComponent siblingComponent = siblings.get(0);
         if (siblingComponent.getParent() == toolBar.getParent()) {
-          Border border = siblingComponent.getBorder();
+          final Border border = siblingComponent.getBorder();
           final Insets borderInsets = border.getBorderInsets(siblingComponent);
           final Insets filledBorderInsets = new Insets(1, 0, 0, 0);
           siblingComponent.setBorder(new CompoundBorder(border, 
@@ -638,7 +654,7 @@ class MacOSXConfiguration {
                 
                 @Override
                 public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
-                  Color background = c.getBackground();
+                  final Color background = c.getBackground();
                   g.setColor(background);
                   g.fillRect(x, y, width, 1);
                   g.fillRect(x - borderInsets.left, y, borderInsets.left, height + borderInsets.bottom);
