@@ -1,10 +1,9 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>com.eteks</groupId>
 	<artifactId>sweethome3d</artifactId>
-	<version>5.1.2-SNAPSHOT</version>
+	<version>5.1.2</version>
 	<packaging>jar</packaging>
 
 	<name>sweethome3d</name>
@@ -20,7 +19,7 @@
 		<connection>scm:git:git@github.com:rpax/sweethome3d</connection>
 		<url>scm:git:git@github.com:rpax/sweethome3d</url>
 		<developerConnection>scm:git:git@github.com:rpax/sweethome3d</developerConnection>
-		<tag>HEAD</tag>
+		<tag>sweethome3d-5.1.2</tag>
 	</scm>
 	<developers>
 		<developer>
