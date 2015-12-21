@@ -3,7 +3,7 @@
 
 	<groupId>com.massisframework</groupId>
 	<artifactId>sweethome3d</artifactId>
-	<version>5.1.7</version>
+	<version>5.1.8-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
 	<name>sweethome3d</name>
