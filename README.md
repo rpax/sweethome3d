@@ -1,2 +1,2 @@
 # sweethome3d
-Sweethome3D repository
+Mavenized sweethome3D repository
