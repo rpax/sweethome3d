@@ -3,7 +3,7 @@
 
 	<groupId>com.massisframework</groupId>
 	<artifactId>sweethome3d</artifactId>
-	<version>5.3.0.1-SNAPSHOT</version>
+	<version>5.3.0.1</version>
 	<packaging>jar</packaging>
 
 	<name>sweethome3d</name>
@@ -22,7 +22,7 @@
 		<connection>scm:git:git@github.com:rpax/sweethome3d</connection>
 		<url>scm:git:git@github.com:rpax/sweethome3d</url>
 		<developerConnection>scm:git:git@github.com:rpax/sweethome3d</developerConnection>
-	  <tag>HEAD</tag>
+	  <tag>sweethome3d-5.3.0.1</tag>
   </scm>
 	<distributionManagement>
 		<snapshotRepository>
