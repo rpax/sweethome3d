@@ -157,6 +157,11 @@
 			<scope>system</scope>
 			<systemPath>${java.home}/lib/javaws.jar</systemPath>
 		</dependency>
+		<dependency>
+			<groupId>com.massisframework</groupId>
+			<artifactId>jnlp-definitions</artifactId>
+			<version>7.0</version>
+		</dependency>
 		<!-- JOGL -->
 		<dependency>
 			<groupId>org.jogamp.jogl</groupId>
