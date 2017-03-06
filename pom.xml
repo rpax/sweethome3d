@@ -149,14 +149,6 @@
 		</profile>
 	</profiles>
 	<dependencies>
-		<!-- JNLP: System dependency -->
-		<dependency>
-			<groupId>javax.jnlp</groupId>
-			<artifactId>jnlp-api</artifactId>
-			<version>7.0</version>
-			<scope>system</scope>
-			<systemPath>${java.home}/lib/javaws.jar</systemPath>
-		</dependency>
 		<dependency>
 			<groupId>com.massisframework</groupId>
 			<artifactId>jnlp-definitions</artifactId>

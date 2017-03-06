@@ -619,46 +619,55 @@ public class HomePieceOfFurniture3D extends Object3DBranch {
           } else {
             // Change material to white then texture
             appearance.setTexCoordGeneration(getTextureCoordinates(texture, pieceSize, modelBounds));
+            appearance.setTextureAttributes(getTextureAttributes(texture, true));
             appearance.setMaterial(getMaterial(DEFAULT_COLOR, DEFAULT_AMBIENT_COLOR, materialShininess));
-            appearance.setTextureAttributes(getTextureAttributes(texture));
             TextureManager.getInstance().loadTexture(texture.getImage(),  
                 waitTextureLoadingEnd, getTextureObserver(appearance));
           }
         } else if (materialModified) {
+          String appearanceName = null;
+          try {
+            appearanceName = appearance.getName();
+          } catch (NoSuchMethodError ex) {
+            // Don't support HomeMaterial with Java 3D < 1.4 where appearance name was added
+          }
           boolean materialFound = false;
-          // Apply color, texture and shininess of the material named as appearance name
-          for (HomeMaterial material : materials) {
-            if (material != null
-                && (material.getKey() != null
-                        && material.getKey().equals(appearance.getName())
-                    || material.getKey() == null
-                        && material.getName().equals(appearance.getName()))) {
-              if (material.getShininess() != null) {
-                materialShininess = material.getShininess();
-              }
-              color = material.getColor();                
-              if (color != null 
-                  && (color.intValue() & 0xFF000000) != 0) {
-                appearance.setMaterial(getMaterial(color, color, materialShininess));
-                appearance.setTexture(null);
-                appearance.setTransparencyAttributes(defaultMaterialAndTexture.getTransparencyAttributes());
-                appearance.setPolygonAttributes(defaultMaterialAndTexture.getPolygonAttributes());
-              } else if (color == null && material.getTexture() != null) {
-                if (isTexturesCoordinatesDefined(shape)) {
-                  restoreDefaultTextureCoordinatesGeneration(appearance);
-                } else {
-                  appearance.setTexCoordGeneration(getTextureCoordinates(material.getTexture(), pieceSize, modelBounds));
+          if (appearanceName != null) {
+            // Apply color, texture and shininess of the material named as appearance name
+            for (HomeMaterial material : materials) {
+              if (material != null
+                  && (material.getKey() != null
+                          && material.getKey().equals(appearanceName)
+                      || material.getKey() == null
+                          && material.getName().equals(appearanceName))) {
+                if (material.getShininess() != null) {
+                  materialShininess = material.getShininess();
                 }
-                appearance.setMaterial(getMaterial(DEFAULT_COLOR, DEFAULT_AMBIENT_COLOR, materialShininess));
-                HomeTexture materialTexture = material.getTexture();
-                appearance.setTextureAttributes(getTextureAttributes(materialTexture));
-                TextureManager.getInstance().loadTexture(materialTexture.getImage(),  
-                    waitTextureLoadingEnd, getTextureObserver(appearance));
-              } else {
-                restoreDefaultMaterialAndTexture(appearance, material.getShininess());
+                color = material.getColor();                
+                if (color != null 
+                    && (color.intValue() & 0xFF000000) != 0) {
+                  appearance.setMaterial(getMaterial(color, color, materialShininess));
+                  appearance.setTexture(null);
+                  appearance.setTransparencyAttributes(defaultMaterialAndTexture.getTransparencyAttributes());
+                  appearance.setPolygonAttributes(defaultMaterialAndTexture.getPolygonAttributes());
+                } else if (color == null && material.getTexture() != null) {
+                  HomeTexture materialTexture = material.getTexture();
+                  if (isTexturesCoordinatesDefined(shape)) {
+                    restoreDefaultTextureCoordinatesGeneration(appearance);
+                    appearance.setTextureAttributes(getTextureAttributes(materialTexture));
+                  } else {
+                    appearance.setTexCoordGeneration(getTextureCoordinates(material.getTexture(), pieceSize, modelBounds));
+                    appearance.setTextureAttributes(getTextureAttributes(materialTexture, true));
+                  }
+                  appearance.setMaterial(getMaterial(DEFAULT_COLOR, DEFAULT_AMBIENT_COLOR, materialShininess));
+                  TextureManager.getInstance().loadTexture(materialTexture.getImage(),  
+                      waitTextureLoadingEnd, getTextureObserver(appearance));
+                } else {
+                  restoreDefaultMaterialAndTexture(appearance, material.getShininess());
+                }
+                materialFound = true;
+                break;
               }
-              materialFound = true;
-              break;
             }
           }
           if (!materialFound) {
@@ -714,14 +723,12 @@ public class HomePieceOfFurniture3D extends Object3DBranch {
     Point3d upper = new Point3d();
     modelBounds.getUpper(upper);
     float minimumSize = ModelManager.getInstance().getMinimumSize();
-    float textureWidth = texture.getWidth();
-    float textureHeight = texture.getHeight();
-    float sx = pieceSize.x / (float)Math.max(upper.x - lower.x, minimumSize) / textureWidth;
+    float sx = pieceSize.x / (float)Math.max(upper.x - lower.x, minimumSize);
     float sw = texture.isLeftToRightOriented()  
         ? (float)-lower.x * sx  
         : 0;
-    float ty = pieceSize.y / (float)Math.max(upper.y - lower.y, minimumSize) / textureHeight;
-    float tz = pieceSize.z / (float)Math.max(upper.z - lower.z, minimumSize) / textureHeight;
+    float ty = pieceSize.y / (float)Math.max(upper.y - lower.y, minimumSize);
+    float tz = pieceSize.z / (float)Math.max(upper.z - lower.z, minimumSize);
     float tw = texture.isLeftToRightOriented()  
         ? (float)(-lower.y * ty + upper.z * tz)
         : 0;
@@ -814,14 +821,22 @@ public class HomePieceOfFurniture3D extends Object3DBranch {
       
       if (visible
           && materials != null) {
-        // Check whether the material color used by this shape isn't invisible 
-        for (HomeMaterial material : materials) {
-          if (material != null 
-              && material.getName().equals(appearance.getName())) {
-            Integer color = material.getColor();                
-            visible = color == null
-                || (color.intValue() & 0xFF000000) != 0;
-            break;
+        String appearanceName = null;
+        try {
+          appearanceName = appearance.getName();
+        } catch (NoSuchMethodError ex) {
+          // Don't support HomeMaterial with Java 3D < 1.4 where appearance name was added
+        }
+        if (appearanceName != null) {
+          // Check whether the material color used by this shape isn't invisible 
+          for (HomeMaterial material : materials) {
+            if (material != null 
+                && material.getName().equals(appearanceName)) {
+              Integer color = material.getColor();                
+              visible = color == null
+                  || (color.intValue() & 0xFF000000) != 0;
+              break;
+            }
           }
         }
       }  
