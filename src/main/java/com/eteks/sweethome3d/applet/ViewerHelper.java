@@ -382,9 +382,9 @@ public final class ViewerHelper {
           }
           List<Camera> selectableCamerasList = new ArrayList<Camera>();
           for (String selectableCamera : selectableCameras) {
-            Camera level = getStoredCamera(home, selectableCamera);
-            if (level != null) {
-              selectableCamerasList.add(level);
+            Camera camera = getStoredCamera(home, selectableCamera);
+            if (camera != null) {
+              selectableCamerasList.add(camera);
             }
           }
           if (!selectableLevelsList.isEmpty()
@@ -439,9 +439,9 @@ public final class ViewerHelper {
    * Returns a home stored camera from its name.
    */
   private Camera getStoredCamera(Home home, String cameraName) {
-    for (Camera level : home.getStoredCameras()) {
-      if (cameraName.equals(level.getName())) {
-        return level;
+    for (Camera camera : home.getStoredCameras()) {
+      if (cameraName.equals(camera.getName())) {
+        return camera;
       }
     }
     return null;

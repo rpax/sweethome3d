@@ -68,14 +68,11 @@ import java.awt.print.PrinterJob;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.BufferedOutputStream;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
-import java.io.Writer;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -102,8 +99,11 @@ import javax.media.j3d.VirtualUniverse;
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.ActionMap;
+import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.ButtonGroup;
+import javax.swing.DefaultListCellRenderer;
+import javax.swing.DefaultListSelectionModel;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.InputMap;
@@ -129,6 +129,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
 import javax.swing.JSplitPane;
 import javax.swing.JTable;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.JToolBar;
@@ -174,6 +175,7 @@ import com.eteks.sweethome3d.model.Content;
 import com.eteks.sweethome3d.model.DimensionLine;
 import com.eteks.sweethome3d.model.Elevatable;
 import com.eteks.sweethome3d.model.Home;
+import com.eteks.sweethome3d.model.HomeDescriptor;
 import com.eteks.sweethome3d.model.HomeEnvironment;
 import com.eteks.sweethome3d.model.HomeFurnitureGroup;
 import com.eteks.sweethome3d.model.HomePieceOfFurniture;
@@ -195,7 +197,9 @@ import com.eteks.sweethome3d.plugin.Plugin;
 import com.eteks.sweethome3d.plugin.PluginAction;
 import com.eteks.sweethome3d.plugin.PluginManager;
 import com.eteks.sweethome3d.tools.OperatingSystem;
+import com.eteks.sweethome3d.tools.URLContent;
 import com.eteks.sweethome3d.viewcontroller.ContentManager;
+import com.eteks.sweethome3d.viewcontroller.ExportableView;
 import com.eteks.sweethome3d.viewcontroller.FurnitureController;
 import com.eteks.sweethome3d.viewcontroller.HomeController;
 import com.eteks.sweethome3d.viewcontroller.HomeController3D;
@@ -296,6 +300,7 @@ public class HomePane extends JRootPane implements HomeView {
                              UserPreferences preferences, 
                              final HomeController controller) {
     createAction(ActionType.NEW_HOME, preferences, controller, "newHome");
+    createAction(ActionType.NEW_HOME_FROM_EXAMPLE, preferences, controller, "newHomeFromExample");
     createAction(ActionType.OPEN, preferences, controller, "open");
     createAction(ActionType.DELETE_RECENT_HOMES, preferences, controller, "deleteRecentHomes");
     createAction(ActionType.CLOSE, preferences, controller, "close");
@@ -349,6 +354,8 @@ public class HomePane extends JRootPane implements HomeView {
         furnitureController, "toggleFurnitureSort", HomePieceOfFurniture.SortableProperty.CATALOG_ID);
     createAction(ActionType.SORT_HOME_FURNITURE_BY_NAME, preferences, 
         furnitureController, "toggleFurnitureSort", HomePieceOfFurniture.SortableProperty.NAME);
+    createAction(ActionType.SORT_HOME_FURNITURE_BY_CREATOR, preferences, 
+        furnitureController, "toggleFurnitureSort", HomePieceOfFurniture.SortableProperty.CREATOR);
     createAction(ActionType.SORT_HOME_FURNITURE_BY_WIDTH, preferences, 
         furnitureController, "toggleFurnitureSort", HomePieceOfFurniture.SortableProperty.WIDTH);
     createAction(ActionType.SORT_HOME_FURNITURE_BY_DEPTH, preferences, 
@@ -365,6 +372,8 @@ public class HomePane extends JRootPane implements HomeView {
         furnitureController, "toggleFurnitureSort", HomePieceOfFurniture.SortableProperty.ANGLE);
     createAction(ActionType.SORT_HOME_FURNITURE_BY_LEVEL, preferences, 
         furnitureController, "toggleFurnitureSort", HomePieceOfFurniture.SortableProperty.LEVEL);
+    createAction(ActionType.SORT_HOME_FURNITURE_BY_MODEL_SIZE, preferences, 
+        furnitureController, "toggleFurnitureSort", HomePieceOfFurniture.SortableProperty.MODEL_SIZE);
     createAction(ActionType.SORT_HOME_FURNITURE_BY_COLOR, preferences, 
         furnitureController, "toggleFurnitureSort", HomePieceOfFurniture.SortableProperty.COLOR);
     createAction(ActionType.SORT_HOME_FURNITURE_BY_TEXTURE, preferences, 
@@ -389,6 +398,8 @@ public class HomePane extends JRootPane implements HomeView {
         furnitureController, "toggleFurnitureVisibleProperty", HomePieceOfFurniture.SortableProperty.CATALOG_ID);
     createAction(ActionType.DISPLAY_HOME_FURNITURE_NAME, preferences, 
         furnitureController, "toggleFurnitureVisibleProperty", HomePieceOfFurniture.SortableProperty.NAME);
+    createAction(ActionType.DISPLAY_HOME_FURNITURE_CREATOR, preferences, 
+        furnitureController, "toggleFurnitureVisibleProperty", HomePieceOfFurniture.SortableProperty.CREATOR);
     createAction(ActionType.DISPLAY_HOME_FURNITURE_WIDTH, preferences, 
         furnitureController, "toggleFurnitureVisibleProperty", HomePieceOfFurniture.SortableProperty.WIDTH);
     createAction(ActionType.DISPLAY_HOME_FURNITURE_DEPTH, preferences, 
@@ -405,6 +416,8 @@ public class HomePane extends JRootPane implements HomeView {
         furnitureController, "toggleFurnitureVisibleProperty", HomePieceOfFurniture.SortableProperty.ANGLE);
     createAction(ActionType.DISPLAY_HOME_FURNITURE_LEVEL, preferences, 
         furnitureController, "toggleFurnitureVisibleProperty", HomePieceOfFurniture.SortableProperty.LEVEL);
+    createAction(ActionType.DISPLAY_HOME_FURNITURE_MODEL_SIZE, preferences, 
+        furnitureController, "toggleFurnitureVisibleProperty", HomePieceOfFurniture.SortableProperty.MODEL_SIZE);
     createAction(ActionType.DISPLAY_HOME_FURNITURE_COLOR, preferences, 
         furnitureController, "toggleFurnitureVisibleProperty", HomePieceOfFurniture.SortableProperty.COLOR);
     createAction(ActionType.DISPLAY_HOME_FURNITURE_TEXTURE, preferences, 
@@ -462,6 +475,7 @@ public class HomePane extends JRootPane implements HomeView {
       toggleBoldAction.putValue(ResourceAction.TOGGLE_BUTTON_MODEL, createBoldStyleToggleModel(home, preferences));
       Action toggleItalicAction = createAction(ActionType.TOGGLE_ITALIC_STYLE, preferences, planController, "toggleItalicStyle");
       toggleItalicAction.putValue(ResourceAction.TOGGLE_BUTTON_MODEL, createItalicStyleToggleModel(home, preferences));
+      createAction(ActionType.JOIN_WALLS, preferences, planController, "joinSelectedWalls");
       createAction(ActionType.REVERSE_WALL_DIRECTION, preferences, planController, "reverseSelectedWallsDirection");
       createAction(ActionType.SPLIT_WALL, preferences, planController, "splitSelectedWall");
       createAction(ActionType.IMPORT_BACKGROUND_IMAGE, preferences, controller, "importBackgroundImage");
@@ -885,11 +899,17 @@ public class HomePane extends JRootPane implements HomeView {
           // This listener manages accelerator keys that may require the use of shift key 
           // depending on keyboard layout (like + - or ?) 
           ActionMap actionMap = getActionMap();
-          Action [] specialKeyActions = {actionMap.get(ActionType.ZOOM_IN), 
-                                         actionMap.get(ActionType.ZOOM_OUT), 
-                                         actionMap.get(ActionType.INCREASE_TEXT_SIZE), 
-                                         actionMap.get(ActionType.DECREASE_TEXT_SIZE), 
-                                         actionMap.get(ActionType.HELP)};
+          List<Action> specialKeyActions = Arrays.asList(actionMap.get(ActionType.ZOOM_IN), 
+              actionMap.get(ActionType.ZOOM_OUT), 
+              actionMap.get(ActionType.INCREASE_TEXT_SIZE), 
+              actionMap.get(ActionType.DECREASE_TEXT_SIZE), 
+              actionMap.get(ActionType.HELP));
+          if (!Boolean.getBoolean("apple.laf.useScreenMenuBar")
+              && Boolean.getBoolean("sweethome3d.bundle")) {
+            // Manage preferences accelerator only for bundle applications without screen menu bar
+            specialKeyActions = new ArrayList<Action>(specialKeyActions);
+            specialKeyActions.add(actionMap.get(ActionType.PREFERENCES)); 
+          }
           int modifiersMask = KeyEvent.ALT_MASK | KeyEvent.CTRL_MASK | KeyEvent.META_MASK;
           for (Action specialKeyAction : specialKeyActions) {
             KeyStroke actionKeyStroke = (KeyStroke)specialKeyAction.getValue(Action.ACCELERATOR_KEY);
@@ -952,6 +972,9 @@ public class HomePane extends JRootPane implements HomeView {
     // Create File menu
     JMenu fileMenu = new JMenu(this.menuActionMap.get(MenuActionType.FILE_MENU));
     addActionToMenu(ActionType.NEW_HOME, fileMenu);
+    if (preferences.getHomeExamples().size() > 0) {
+      addActionToMenu(ActionType.NEW_HOME_FROM_EXAMPLE, fileMenu);
+    }
     addActionToMenu(ActionType.OPEN, fileMenu);
     
     
@@ -983,11 +1006,15 @@ public class HomePane extends JRootPane implements HomeView {
     addActionToMenu(ActionType.PAGE_SETUP, fileMenu);
     addActionToMenu(ActionType.PRINT_PREVIEW, fileMenu);
     addActionToMenu(ActionType.PRINT, fileMenu);
-    // Don't add PRINT_TO_PDF, PREFERENCES and EXIT menu items under Mac OS X, 
+    // Don't add PRINT_TO_PDF, PREFERENCES and EXIT menu items under Mac OS X when screen menu bar is used, 
     // because PREFERENCES and EXIT items are displayed in application menu
     // and PRINT_TO_PDF is available in standard Mac OS X Print dialog
     if (!OperatingSystem.isMacOSX()) {
       addActionToMenu(ActionType.PRINT_TO_PDF, fileMenu);
+    }
+    if (!OperatingSystem.isMacOSX()
+        || !Boolean.getBoolean("apple.laf.useScreenMenuBar")
+        || OperatingSystem.isJavaVersionGreaterOrEqual("1.9")) {      
       fileMenu.addSeparator();
       addActionToMenu(ActionType.PREFERENCES, fileMenu);
     }
@@ -1054,6 +1081,7 @@ public class HomePane extends JRootPane implements HomeView {
     }
     addActionToMenu(ActionType.MODIFY_COMPASS, planMenu);
     addActionToMenu(ActionType.MODIFY_WALL, planMenu);
+    addActionToMenu(ActionType.JOIN_WALLS, planMenu);
     addActionToMenu(ActionType.REVERSE_WALL_DIRECTION, planMenu);
     addActionToMenu(ActionType.SPLIT_WALL, planMenu);
     addActionToMenu(ActionType.MODIFY_ROOM, planMenu);
@@ -1114,7 +1142,9 @@ public class HomePane extends JRootPane implements HomeView {
     // Create Help menu
     JMenu helpMenu = new JMenu(this.menuActionMap.get(MenuActionType.HELP_MENU));
     addActionToMenu(ActionType.HELP, helpMenu);      
-    if (!OperatingSystem.isMacOSX()) {
+    if (!OperatingSystem.isMacOSX()
+        || !Boolean.getBoolean("apple.laf.useScreenMenuBar")
+        || OperatingSystem.isJavaVersionGreaterOrEqual("1.9")) {
       addActionToMenu(ActionType.ABOUT, helpMenu);      
     }
     
@@ -1156,7 +1186,8 @@ public class HomePane extends JRootPane implements HomeView {
     }
 
     // Add EXIT action at end to ensure it's the last item of file menu
-    if (!OperatingSystem.isMacOSX()) {
+    if (!OperatingSystem.isMacOSX()
+        || !Boolean.getBoolean("apple.laf.useScreenMenuBar")) {
       fileMenu.addSeparator();
       addActionToMenu(ActionType.EXIT, fileMenu);
     }
@@ -1318,6 +1349,8 @@ public class HomePane extends JRootPane implements HomeView {
     }
     addActionToMap(ActionType.SORT_HOME_FURNITURE_BY_NAME, 
         sortActions, HomePieceOfFurniture.SortableProperty.NAME); 
+    addActionToMap(ActionType.SORT_HOME_FURNITURE_BY_CREATOR, 
+        sortActions, HomePieceOfFurniture.SortableProperty.CREATOR); 
     addActionToMap(ActionType.SORT_HOME_FURNITURE_BY_WIDTH, 
         sortActions, HomePieceOfFurniture.SortableProperty.WIDTH);
     addActionToMap(ActionType.SORT_HOME_FURNITURE_BY_DEPTH, 
@@ -1334,6 +1367,8 @@ public class HomePane extends JRootPane implements HomeView {
         sortActions, HomePieceOfFurniture.SortableProperty.ANGLE);
     addActionToMap(ActionType.SORT_HOME_FURNITURE_BY_LEVEL, 
         sortActions, HomePieceOfFurniture.SortableProperty.LEVEL);
+    addActionToMap(ActionType.SORT_HOME_FURNITURE_BY_MODEL_SIZE, 
+        sortActions, HomePieceOfFurniture.SortableProperty.MODEL_SIZE); 
     addActionToMap(ActionType.SORT_HOME_FURNITURE_BY_COLOR, 
         sortActions, HomePieceOfFurniture.SortableProperty.COLOR);
     addActionToMap(ActionType.SORT_HOME_FURNITURE_BY_TEXTURE, 
@@ -1421,6 +1456,8 @@ public class HomePane extends JRootPane implements HomeView {
     }
     addActionToMap(ActionType.DISPLAY_HOME_FURNITURE_NAME, 
         displayPropertyActions, HomePieceOfFurniture.SortableProperty.NAME); 
+    addActionToMap(ActionType.DISPLAY_HOME_FURNITURE_CREATOR, 
+        displayPropertyActions, HomePieceOfFurniture.SortableProperty.CREATOR);
     addActionToMap(ActionType.DISPLAY_HOME_FURNITURE_WIDTH, 
         displayPropertyActions, HomePieceOfFurniture.SortableProperty.WIDTH);
     addActionToMap(ActionType.DISPLAY_HOME_FURNITURE_DEPTH, 
@@ -1437,6 +1474,8 @@ public class HomePane extends JRootPane implements HomeView {
         displayPropertyActions, HomePieceOfFurniture.SortableProperty.ANGLE);
     addActionToMap(ActionType.DISPLAY_HOME_FURNITURE_LEVEL, 
         displayPropertyActions, HomePieceOfFurniture.SortableProperty.LEVEL);
+    addActionToMap(ActionType.DISPLAY_HOME_FURNITURE_MODEL_SIZE, 
+        displayPropertyActions, HomePieceOfFurniture.SortableProperty.MODEL_SIZE);
     addActionToMap(ActionType.DISPLAY_HOME_FURNITURE_COLOR, 
         displayPropertyActions, HomePieceOfFurniture.SortableProperty.COLOR);
     addActionToMap(ActionType.DISPLAY_HOME_FURNITURE_TEXTURE, 
@@ -2731,6 +2770,7 @@ public class HomePane extends JRootPane implements HomeView {
       addActionToPopupMenu(ActionType.RESET_FURNITURE_ELEVATION, planViewPopup);
       addActionToPopupMenu(ActionType.MODIFY_COMPASS, planViewPopup);
       addActionToPopupMenu(ActionType.MODIFY_WALL, planViewPopup);
+      addActionToPopupMenu(ActionType.JOIN_WALLS, planViewPopup);
       addActionToPopupMenu(ActionType.REVERSE_WALL_DIRECTION, planViewPopup);
       addActionToPopupMenu(ActionType.SPLIT_WALL, planViewPopup);
       addActionToPopupMenu(ActionType.MODIFY_ROOM, planViewPopup);
@@ -3510,6 +3550,108 @@ public class HomePane extends JRootPane implements HomeView {
   }
 
   /**
+   * Displays a dialog to let the user choose a home example.
+   */
+  public String showNewHomeFromExampleDialog() {
+    String message = this.preferences.getLocalizedString(HomePane.class, "newHomeFromExample.message");
+    String title = this.preferences.getLocalizedString(HomePane.class, "newHomeFromExample.title");
+    final String useSelectedHome = this.preferences.getLocalizedString(HomePane.class, "newHomeFromExample.useSelectedExample");
+    String findMoreExamples = this.preferences.getLocalizedString(HomePane.class, "newHomeFromExample.findMoreExamples");
+    String cancel = this.preferences.getLocalizedString(HomePane.class, "newHomeFromExample.cancel");
+    final JList homeExamplesList = new JList(this.preferences.getHomeExamples().toArray()) {
+        @Override
+        public String getToolTipText(MouseEvent ev) {
+          int index = locationToIndex(ev.getPoint());
+          // Display full name in tool tip in case label renderer is too short 
+          return index != -1 
+              ? ((HomeDescriptor)getModel().getElementAt(index)).getName()
+              : null;
+        }
+      };
+    homeExamplesList.setSelectionModel(new DefaultListSelectionModel() {
+        @Override
+        public void removeSelectionInterval(int index0, int index1) {
+          // Do nothing, to avoid empty selection in case of Ctrl or cmd + click
+        }
+      });
+    homeExamplesList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+    homeExamplesList.setSelectedIndex(0);
+    homeExamplesList.setLayoutOrientation(JList.HORIZONTAL_WRAP);
+    homeExamplesList.setVisibleRowCount(3);
+    final int iconWidth = 192;
+    homeExamplesList.setFixedCellWidth(iconWidth + 8);
+    homeExamplesList.setCellRenderer(new DefaultListCellRenderer() {
+        @Override
+        public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected,
+                                                      boolean cellHasFocus) {
+          HomeDescriptor home = (HomeDescriptor)value;
+          super.getListCellRendererComponent(list, home.getName(), index, isSelected, cellHasFocus);
+          setIcon(IconManager.getInstance().getIcon(home.getIcon(), iconWidth * 3 / 4, homeExamplesList));
+          setHorizontalAlignment(CENTER);
+          setHorizontalTextPosition(CENTER);
+          setVerticalTextPosition(BOTTOM);
+          setBorder(BorderFactory.createCompoundBorder(getBorder(), BorderFactory.createEmptyBorder(2, 0, 2, 0)));
+          return this;
+        }
+      });
+    homeExamplesList.addMouseListener(new MouseAdapter() {
+        @Override
+        public void mouseClicked(MouseEvent ev) {
+          if (ev.getClickCount() == 2) {
+            ((JOptionPane)SwingUtilities.getAncestorOfClass(JOptionPane.class, ev.getComponent())).setValue(useSelectedHome);
+          }
+        }
+      });
+    
+    JPanel panel = new JPanel(new GridBagLayout());
+    panel.add(new JLabel(message), new GridBagConstraints(
+        0, 0, 1, 1, 0, 0, GridBagConstraints.LINE_START, 
+        GridBagConstraints.NONE, new Insets(0, 0, 5, 0), 0, 0));
+    panel.add(new JScrollPane(homeExamplesList), new GridBagConstraints(
+        0, 1, 1, 1, 0, 0, GridBagConstraints.CENTER, 
+        GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0));
+    
+    Object [] options = findMoreExamples.length() > 0
+        ? new Object [] {useSelectedHome, findMoreExamples, cancel}
+        : new Object [] {useSelectedHome, cancel};
+    int option = JOptionPane.showOptionDialog(this, panel, title, 
+        findMoreExamples.length() > 0 ? JOptionPane.YES_NO_CANCEL_OPTION : JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE,
+        null, options, useSelectedHome);
+    switch (option) {
+      // Convert showOptionDialog answer to SaveAnswer enum constants
+      case JOptionPane.YES_OPTION: 
+        Content homeContent = ((HomeDescriptor)homeExamplesList.getSelectedValue()).getContent();
+        return homeContent instanceof URLContent 
+            ? ((URLContent)homeContent).getURL().toString() 
+            : null;
+      case JOptionPane.NO_OPTION: 
+        String findModelsUrl = preferences.getLocalizedString(HomePane.class, "findMoreExamples.url");
+        boolean documentShown = false;
+        try { 
+          // Display Find more demos (gallery) page in browser
+          documentShown = SwingTools.showDocumentInBrowser(new URL(findModelsUrl)); 
+        } catch (MalformedURLException ex) {
+          // Document isn't shown
+        }
+        if (!documentShown) {
+          // If the document wasn't shown, display a message 
+          // with a copiable URL in a message box 
+          JTextArea findMoreExamplesMessageTextArea = new JTextArea(preferences.getLocalizedString(
+              HomePane.class, "findMoreExamplesMessage.text"));
+          String findMoreExamplesTitle = preferences.getLocalizedString(
+              HomePane.class, "findMoreExamplesMessage.title");
+          findMoreExamplesMessageTextArea.setEditable(false);
+          findMoreExamplesMessageTextArea.setOpaque(false);
+          JOptionPane.showMessageDialog(SwingUtilities.getRootPane(this), 
+              findMoreExamplesMessageTextArea, findMoreExamplesTitle, JOptionPane.INFORMATION_MESSAGE);
+        }    
+        // No break
+      default : 
+        return null;
+    }
+  }
+
+  /**
    * Displays a dialog that lets user choose what he wants to do with a damaged home he tries to open it.
    * @return {@link com.eteks.sweethome3d.viewcontroller.HomeView.OpenDamagedHomeAnswer#REMOVE_DAMAGED_ITEMS} 
    * if the user chose to remove damaged items,
@@ -3786,9 +3928,15 @@ public class HomePane extends JRootPane implements HomeView {
     }
     float maxMemoryGigaByte = Math.max(0.1f, Runtime.getRuntime().maxMemory() / 1073741824f);    
     javaVersion += " / " + new DecimalFormat("#.#").format(maxMemoryGigaByte) + " GB max";
-    String java3dVersion = (String)VirtualUniverse.getProperties().get("j3d.version");
-    if (java3dVersion != null) {
-      java3dVersion = java3dVersion.split("\\s") [0];
+    String java3dVersion;
+    try {
+      java3dVersion = (String)VirtualUniverse.getProperties().get("j3d.version");
+      if (java3dVersion != null) {
+        java3dVersion = java3dVersion.split("\\s") [0];
+      }
+    } catch (Throwable ex) {
+      // No Java 3D libraries
+      java3dVersion = "<i>not available</i>";
     }
     String message = String.format(messageFormat, aboutVersion, javaVersion, java3dVersion);
     JComponent messagePane = createEditorPane(message);
@@ -4191,28 +4339,29 @@ public class HomePane extends JRootPane implements HomeView {
    * Caution !!! This method may be called from an other thread than EDT.  
    */
   public void exportToCSV(String csvFile) throws RecorderException {
-    View furnitureView = this.controller.getFurnitureController().getView();
-    FurnitureTable furnitureTable;
-    if (furnitureView instanceof FurnitureTable) {
-      furnitureTable = (FurnitureTable)furnitureView;
+    View view = this.controller.getFurnitureController().getView();
+    ExportableView furnitureView;
+    if (view instanceof ExportableView
+        && ((ExportableView)view).isFormatTypeSupported(ExportableView.FormatType.CSV)) {
+      furnitureView = (ExportableView)view;
     } else {
-      furnitureTable = new FurnitureTable(this.home, this.preferences);
+      furnitureView = new FurnitureTable(this.home, this.preferences);
     }    
     
-    Writer writer = null;
+    OutputStream out = null;
     boolean exportInterrupted = false;
     try {
-      writer = new BufferedWriter(new FileWriter(csvFile));
-      furnitureTable.exportToCSV(writer, '\t');
+      out = new BufferedOutputStream(new FileOutputStream(csvFile));
+      furnitureView.exportData(out, ExportableView.FormatType.CSV, null);
     } catch (InterruptedIOException ex) {
       exportInterrupted = true;
       throw new InterruptedRecorderException("Export to " + csvFile + " interrupted");
     } catch (IOException ex) {
       throw new RecorderException("Couldn't export to CSV in " + csvFile, ex);
     } finally {
-      if (writer != null) {
+      if (out != null) {
         try {
-          writer.close();
+          out.close();
           // Delete the file if exporting is interrupted
           if (exportInterrupted) {
             new File(csvFile).delete();
@@ -4238,19 +4387,20 @@ public class HomePane extends JRootPane implements HomeView {
    * Caution !!! This method may be called from an other thread than EDT.  
    */
   public void exportToSVG(String svgFile) throws RecorderException {
-    View planView = this.controller.getPlanController().getView();
-    final PlanComponent planComponent;
-    if (planView instanceof PlanComponent) {
-      planComponent = (PlanComponent)planView;
+    View view = this.controller.getPlanController().getView();
+    final ExportableView planView;
+    if (view instanceof ExportableView
+        && ((ExportableView)view).isFormatTypeSupported(ExportableView.FormatType.SVG)) {
+      planView = (ExportableView)view;
     } else {
-      planComponent = new PlanComponent(cloneHomeInEventDispatchThread(this.home), this.preferences, null);
+      planView = new PlanComponent(cloneHomeInEventDispatchThread(this.home), this.preferences, null);
     }    
     
     OutputStream outputStream = null;
     boolean exportInterrupted = false;
     try {
       outputStream = new BufferedOutputStream(new FileOutputStream(svgFile));
-      planComponent.exportToSVG(outputStream);
+      planView.exportData(outputStream, ExportableView.FormatType.SVG, null);
     } catch (InterruptedIOException ex) {
       exportInterrupted = true;
       throw new InterruptedRecorderException("Export to " + svgFile + " interrupted");

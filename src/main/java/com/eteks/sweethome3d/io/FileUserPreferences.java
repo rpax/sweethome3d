@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
@@ -48,6 +49,7 @@ import java.util.Properties;
 import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.WeakHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.prefs.AbstractPreferences;
@@ -88,11 +90,13 @@ public class FileUserPreferences extends UserPreferences {
   private static final String FURNITURE_CATALOG_VIEWED_IN_TREE          = "furnitureCatalogViewedInTree";
   private static final String NAVIGATION_PANEL_VISIBLE                  = "navigationPanelVisible";
   private static final String AERIAL_VIEW_CENTERED_ON_SELECTION_ENABLED = "aerialViewCenteredOnSelectionEnabled";
+  private static final String OBSERVER_CAMERA_SELECTED_AT_CHANGE        = "observerCameraSelectedAtChange";
   private static final String MAGNETISM_ENABLED                         = "magnetismEnabled";
   private static final String RULERS_VISIBLE                            = "rulersVisible";
   private static final String GRID_VISIBLE                              = "gridVisible";
   private static final String DEFAULT_FONT_NAME                         = "defaultFontName";
   private static final String FURNITURE_VIEWED_FROM_TOP                 = "furnitureViewedFromTop";
+  private static final String FURNITURE_MODEL_ICON_SIZE                 = "furnitureModelIconSize";
   private static final String ROOM_FLOOR_COLORED_OR_TEXTURED            = "roomFloorColoredOrTextured";
   private static final String WALL_PATTERN                              = "wallPattern";
   private static final String NEW_WALL_PATTERN                          = "newWallPattern";
@@ -107,10 +111,16 @@ public class FileUserPreferences extends UserPreferences {
   private static final String AUTO_COMPLETION_PROPERTY                  = "autoCompletionProperty#";
   private static final String AUTO_COMPLETION_STRINGS                   = "autoCompletionStrings#";
   private static final String RECENT_COLORS                             = "recentColors";
+  private static final String RECENT_TEXTURE_NAME                       = "recentTextureName#";
+  private static final String RECENT_TEXTURE_CREATOR                    = "recentTextureCreator#";
+  private static final String RECENT_TEXTURE_IMAGE                      = "recentTextureImage#";
+  private static final String RECENT_TEXTURE_WIDTH                      = "recentTextureWidth#";
+  private static final String RECENT_TEXTURE_HEIGHT                     = "recentTextureHeight#";
   private static final String RECENT_HOMES                              = "recentHomes#";
   private static final String IGNORED_ACTION_TIP                        = "ignoredActionTip#";  
-
+  
   private static final String FURNITURE_NAME                            = "furnitureName#";
+  private static final String FURNITURE_CREATOR                         = "furnitureCreator#";
   private static final String FURNITURE_CATEGORY                        = "furnitureCategory#";
   private static final String FURNITURE_ICON                            = "furnitureIcon#";
   private static final String FURNITURE_MODEL                           = "furnitureModel#";
@@ -121,6 +131,7 @@ public class FileUserPreferences extends UserPreferences {
   private static final String FURNITURE_DOOR_OR_WINDOW                  = "furnitureDoorOrWindow#";
   private static final String FURNITURE_ELEVATION                       = "furnitureElevation#";
   private static final String FURNITURE_COLOR                           = "furnitureColor#";
+  private static final String FURNITURE_MODEL_SIZE                      = "furnitureModelSize#";
   private static final String FURNITURE_MODEL_ROTATION                  = "furnitureModelRotation#";
   private static final String FURNITURE_STAIRCASE_CUT_OUT_SHAPE         = "furnitureStaircaseCutOutShape#"; 
   private static final String FURNITURE_BACK_FACE_SHOWN                 = "furnitureBackFaceShown#";
@@ -128,6 +139,7 @@ public class FileUserPreferences extends UserPreferences {
   private static final String FURNITURE_PROPORTIONAL                    = "furnitureProportional#";
 
   private static final String TEXTURE_NAME                              = "textureName#";
+  private static final String TEXTURE_CREATOR                           = "textureCreator#";
   private static final String TEXTURE_CATEGORY                          = "textureCategory#";
   private static final String TEXTURE_IMAGE                             = "textureImage#";
   private static final String TEXTURE_WIDTH                             = "textureWidth#";
@@ -140,7 +152,7 @@ public class FileUserPreferences extends UserPreferences {
   private static final String FURNITURE_LIBRARIES_PLUGIN_SUB_FOLDER     = "furniture";
   private static final String TEXTURES_LIBRARIES_PLUGIN_SUB_FOLDER      = "textures";
 
-  private static final Content DUMMY_CONTENT;
+  private static final PreferencesURLContent MISSING_CONTENT;
   
   private final Map<String, Boolean> ignoredActionTips = new HashMap<String, Boolean>();
   private List<ClassLoader>          resourceClassLoaders;
@@ -151,15 +163,17 @@ public class FileUserPreferences extends UserPreferences {
   private Executor                   updater;
   private List<Library>              libraries;
   
+  private Map<Content, PreferencesURLContent> copiedContentsCache = new WeakHashMap<Content, PreferencesURLContent>();
+  
   public static final String PLUGIN_LANGUAGE_LIBRARY_FAMILY = "PluginLanguageLibrary";
   
   static {
-    Content dummyURLContent = null;
+    PreferencesURLContent dummyURLContent = null;
     try {
-      dummyURLContent = new URLContent(new URL("file:/dummySweetHome3DContent"));
+      dummyURLContent = new PreferencesURLContent(new URL("file:/missingSweetHome3DContent"));
     } catch (MalformedURLException ex) {
     }
-    DUMMY_CONTENT = dummyURLContent;
+    MISSING_CONTENT = dummyURLContent;
   }
  
   /**
@@ -274,12 +288,15 @@ public class FileUserPreferences extends UserPreferences {
         defaultPreferences.isNavigationPanelVisible()));
     setAerialViewCenteredOnSelectionEnabled(preferences.getBoolean(AERIAL_VIEW_CENTERED_ON_SELECTION_ENABLED, 
         defaultPreferences.isAerialViewCenteredOnSelectionEnabled()));
+    setObserverCameraSelectedAtChange(preferences.getBoolean(OBSERVER_CAMERA_SELECTED_AT_CHANGE, 
+        defaultPreferences.isObserverCameraSelectedAtChange()));
     setMagnetismEnabled(preferences.getBoolean(MAGNETISM_ENABLED, true));
     setRulersVisible(preferences.getBoolean(RULERS_VISIBLE, defaultPreferences.isRulersVisible()));
     setGridVisible(preferences.getBoolean(GRID_VISIBLE, defaultPreferences.isGridVisible()));
     setDefaultFontName(preferences.get(DEFAULT_FONT_NAME,  defaultPreferences.getDefaultFontName()));
     setFurnitureViewedFromTop(preferences.getBoolean(FURNITURE_VIEWED_FROM_TOP, 
         defaultPreferences.isFurnitureViewedFromTop()));
+    setFurnitureModelIconSize(preferences.getInt(FURNITURE_MODEL_ICON_SIZE, defaultPreferences.getFurnitureModelIconSize()));
     setFloorColoredOrTextured(preferences.getBoolean(ROOM_FLOOR_COLORED_OR_TEXTURED, 
         defaultPreferences.isRoomFloorColoredOrTextured()));
     try {
@@ -324,6 +341,7 @@ public class FileUserPreferences extends UserPreferences {
       }
     }
     setRecentColors(recentColorsList);
+    readRecentTextures(preferences);
     // Read recent homes list
     List<String> recentHomes = new ArrayList<String>();
     for (int i = 1; i <= getRecentHomesMaxCount(); i++) {
@@ -357,12 +375,15 @@ public class FileUserPreferences extends UserPreferences {
       }
     }
     
+    setHomeExamples(defaultPreferences.getHomeExamples());
+    
     addPropertyChangeListener(Property.LANGUAGE, new PropertyChangeListener() {
         public void propertyChange(PropertyChangeEvent ev) {
           // Update catalogs with new default locale
           updateFurnitureDefaultCatalog(catalogsLoader, FileUserPreferences.this.updater);
           updateTexturesDefaultCatalog(catalogsLoader, FileUserPreferences.this.updater);
           updateAutoCompletionStrings();
+          setHomeExamples(new DefaultUserPreferences(false, FileUserPreferences.this).getHomeExamples());
         }
       });
     
@@ -373,7 +394,7 @@ public class FileUserPreferences extends UserPreferences {
       this.preferences = preferences;
     }
   }
-  
+
   /**
    * Updates the default supported languages with languages available in plugin folder. 
    */
@@ -654,6 +675,34 @@ public class FileUserPreferences extends UserPreferences {
   }
 
   /**
+   * Read recent textures from preferences.
+   */
+  private void readRecentTextures(Preferences preferences) {
+    File preferencesFolder;
+    try {
+      preferencesFolder = getPreferencesFolder();
+    } catch (IOException ex) {
+      return;
+    }
+    List<TextureImage> recentTextures = new ArrayList<TextureImage>();
+    for (int index = 1; true; index++) {
+      String textureName = preferences.get(RECENT_TEXTURE_NAME + index, null);
+      if (textureName == null) {
+        break;
+      } else {
+        Content image = getContent(preferences, RECENT_TEXTURE_IMAGE + index, preferencesFolder);
+        if (image != MISSING_CONTENT) {
+          float width = preferences.getFloat(RECENT_TEXTURE_WIDTH + index, -1);
+          float height = preferences.getFloat(RECENT_TEXTURE_HEIGHT + index, -1);
+          String creator = preferences.get(RECENT_TEXTURE_CREATOR + index, null);
+          recentTextures.add(new CatalogTexture(null, textureName, image, width, height, creator));
+        }
+      }
+    }
+    setRecentTextures(recentTextures);
+  }
+  
+  /**
    * Read modifiable furniture catalog from preferences.
    */
   private void readModifiableFurnitureCatalog(Preferences preferences) {
@@ -666,8 +715,11 @@ public class FileUserPreferences extends UserPreferences {
     }
     CatalogPieceOfFurniture piece;
     for (int i = 1; (piece = readModifiablePieceOfFurniture(preferences, i, preferencesFolder)) != null; i++) {
-      FurnitureCategory pieceCategory = readModifiableFurnitureCategory(preferences, i);
-      getFurnitureCatalog().add(pieceCategory, piece);
+      if (piece.getIcon() != MISSING_CONTENT
+          && piece.getModel() != MISSING_CONTENT) {
+        FurnitureCategory pieceCategory = readModifiableFurnitureCategory(preferences, i);
+        getFurnitureCatalog().add(pieceCategory, piece);
+      }
     }
   }  
 
@@ -688,31 +740,35 @@ public class FileUserPreferences extends UserPreferences {
       // Return null if key furnitureName# doesn't exist
       return null;
     }
-    Content icon  = getContent(preferences, FURNITURE_ICON + index, preferencesFolder);
-    Content model = getContent(preferences, FURNITURE_MODEL + index, preferencesFolder);
+    URLContent icon  = getContent(preferences, FURNITURE_ICON + index, preferencesFolder);
+    URLContent model = getContent(preferences, FURNITURE_MODEL + index, preferencesFolder);
     float width = preferences.getFloat(FURNITURE_WIDTH + index, 0.1f);
     float depth = preferences.getFloat(FURNITURE_DEPTH + index, 0.1f);
     float height = preferences.getFloat(FURNITURE_HEIGHT + index, 0.1f);
+    float elevation = preferences.getFloat(FURNITURE_ELEVATION + index, 0);
     boolean movable = preferences.getBoolean(FURNITURE_MOVABLE + index, false);
     boolean doorOrWindow = preferences.getBoolean(FURNITURE_DOOR_OR_WINDOW + index, false);
-    float elevation = preferences.getFloat(FURNITURE_ELEVATION + index, 0);
+    String staircaseCutOutShape = preferences.get(FURNITURE_STAIRCASE_CUT_OUT_SHAPE + index, null);
     String colorString = preferences.get(FURNITURE_COLOR + index, null);
     Integer color = colorString != null 
         ? Integer.valueOf(colorString) : null; 
     float [][] modelRotation = getModelRotation(preferences, FURNITURE_MODEL_ROTATION + index);
-    String staircaseCutOutShape = preferences.get(FURNITURE_STAIRCASE_CUT_OUT_SHAPE + index, null);
     boolean backFaceShown = preferences.getBoolean(FURNITURE_BACK_FACE_SHOWN + index, false);
+    String modelSizeString = preferences.get(FURNITURE_MODEL_SIZE + index, null);
+    Long modelSize = modelSizeString != null
+        ? Long.valueOf(modelSizeString) : model.getSize();
+    String creator = preferences.get(FURNITURE_CREATOR + index, null);
     float iconYaw = preferences.getFloat(FURNITURE_ICON_YAW + index, 0);
     boolean proportional = preferences.getBoolean(FURNITURE_PROPORTIONAL + index, true);
 
     if (doorOrWindow) {
-      return new CatalogDoorOrWindow(name, icon, model,
+      return new CatalogDoorOrWindow(name, icon, model,  
           width, depth, height, elevation, movable, 1, 0, new Sash [0],
-          color, modelRotation, backFaceShown, iconYaw, proportional);
+          color, modelRotation, backFaceShown, modelSize, creator, iconYaw, proportional);
     } else {
-      return new CatalogPieceOfFurniture(name, icon, model,
+      return new CatalogPieceOfFurniture(name, icon, model,  
           width, depth, height, elevation, movable, 
-          staircaseCutOutShape, color, modelRotation, backFaceShown, iconYaw, proportional);
+          staircaseCutOutShape, color, modelRotation, backFaceShown, modelSize, creator, iconYaw, proportional);
     }
   }
 
@@ -761,23 +817,39 @@ public class FileUserPreferences extends UserPreferences {
   /**
    * Returns a content instance from the resource file value of key.
    */
-  private Content getContent(Preferences preferences, String key, 
-                             File preferencesFolder) {
+  private PreferencesURLContent getContent(Preferences preferences, String key, 
+                                           File preferencesFolder) {
     String content = preferences.get(key, null);
     if (content != null) {
       try {
         String preferencesFolderUrl = preferencesFolder.toURI().toURL().toString();
+        URL url;
         if (content.startsWith(preferencesFolderUrl)
             || content.startsWith("jar:" + preferencesFolderUrl)) {
-          return new URLContent(new URL(content));
+          url = new URL(content);
         } else {
-          return new URLContent(new URL(content.replace("file:", preferencesFolderUrl)));
+          url = new URL(content.replace("file:", preferencesFolderUrl));
         }
+        PreferencesURLContent urlContent =  new PreferencesURLContent(url);
+        // Check if a local file exists
+        if (urlContent.isJAREntry()) {
+          URL jarEntryURL = urlContent.getJAREntryURL();
+          if ("file".equals(jarEntryURL.getProtocol()) 
+              && !new File(jarEntryURL.toURI()).exists()) {
+            return MISSING_CONTENT;
+          }
+        } else if ("file".equals(url.getProtocol())
+                   && !new File(url.toURI()).exists()) {
+          return MISSING_CONTENT;
+        }
+        return urlContent;
       } catch (IOException ex) {
-        // Return DUMMY_CONTENT for incorrect URL
+        // Return MISSING_CONTENT for incorrect URL and content
+      } catch (URISyntaxException ex) {
+        // Return MISSING_CONTENT for incorrect content
       } 
     }
-    return DUMMY_CONTENT;
+    return MISSING_CONTENT;
   }
   
   /**
@@ -793,8 +865,10 @@ public class FileUserPreferences extends UserPreferences {
     }
     CatalogTexture texture;
     for (int i = 1; (texture = readModifiableTexture(preferences, i, preferencesFolder)) != null; i++) {
-      TexturesCategory textureCategory = readModifiableTextureCategory(preferences, i);
-      getTexturesCatalog().add(textureCategory, texture);
+      if (texture.getImage() != MISSING_CONTENT) {
+        TexturesCategory textureCategory = readModifiableTextureCategory(preferences, i);
+        getTexturesCatalog().add(textureCategory, texture);
+      }
     }
   }  
 
@@ -817,7 +891,8 @@ public class FileUserPreferences extends UserPreferences {
     Content image = getContent(preferences, TEXTURE_IMAGE + index, preferencesFolder);
     float width = preferences.getFloat(TEXTURE_WIDTH + index, 0.1f);
     float height = preferences.getFloat(TEXTURE_HEIGHT + index, 0.1f);
-    return new CatalogTexture(name, image, width, height, true);
+    String creator = preferences.get(TEXTURE_CREATOR + index, null);
+    return new CatalogTexture(null, name, image, width, height, creator, true);
   }
 
   /**
@@ -840,7 +915,7 @@ public class FileUserPreferences extends UserPreferences {
   public void write() throws RecorderException {
     Preferences preferences = getPreferences();
     writeModifiableFurnitureCatalog(preferences);
-    writeModifiableTexturesCatalog(preferences);
+    writeRecentAndModifiableTexturesCatalog(preferences);
 
     // Write other preferences 
     preferences.put(LANGUAGE, getLanguage());
@@ -849,6 +924,7 @@ public class FileUserPreferences extends UserPreferences {
     preferences.putBoolean(NAVIGATION_PANEL_VISIBLE, isNavigationPanelVisible());
     preferences.putBoolean(MAGNETISM_ENABLED, isMagnetismEnabled());
     preferences.putBoolean(AERIAL_VIEW_CENTERED_ON_SELECTION_ENABLED, isAerialViewCenteredOnSelectionEnabled());
+    preferences.putBoolean(OBSERVER_CAMERA_SELECTED_AT_CHANGE, isObserverCameraSelectedAtChange());
     preferences.putBoolean(RULERS_VISIBLE, isRulersVisible());
     preferences.putBoolean(GRID_VISIBLE, isGridVisible());
     String defaultFontName = getDefaultFontName();
@@ -858,6 +934,7 @@ public class FileUserPreferences extends UserPreferences {
       preferences.put(DEFAULT_FONT_NAME, defaultFontName);
     }
     preferences.putBoolean(FURNITURE_VIEWED_FROM_TOP, isFurnitureViewedFromTop());
+    preferences.putInt(FURNITURE_MODEL_ICON_SIZE, getFurnitureModelIconSize());
     preferences.putBoolean(ROOM_FLOOR_COLORED_OR_TEXTURED, isRoomFloorColoredOrTextured());
     preferences.put(WALL_PATTERN, getWallPattern().getName());
     TextureImage newWallPattern = getNewWallPattern();
@@ -957,23 +1034,35 @@ public class FileUserPreferences extends UserPreferences {
           preferences.putFloat(FURNITURE_WIDTH + i, piece.getWidth());
           preferences.putFloat(FURNITURE_DEPTH + i, piece.getDepth());
           preferences.putFloat(FURNITURE_HEIGHT + i, piece.getHeight());
+          preferences.putFloat(FURNITURE_ELEVATION + i, piece.getElevation());
           preferences.putBoolean(FURNITURE_MOVABLE + i, piece.isMovable());
           preferences.putBoolean(FURNITURE_DOOR_OR_WINDOW + i, piece.isDoorOrWindow());
-          preferences.putFloat(FURNITURE_ELEVATION + i, piece.getElevation());
-          if (piece.getColor() == null) {
-            preferences.remove(FURNITURE_COLOR + i);
+          if (piece.getStaircaseCutOutShape() != null) {
+            preferences.put(FURNITURE_STAIRCASE_CUT_OUT_SHAPE + i, piece.getStaircaseCutOutShape());
           } else {
+            preferences.remove(FURNITURE_STAIRCASE_CUT_OUT_SHAPE + i);
+          }
+          if (piece.getColor() != null) {
             preferences.put(FURNITURE_COLOR + i, String.valueOf(piece.getColor()));
+          } else {
+            preferences.remove(FURNITURE_COLOR + i);
           }
           float [][] modelRotation = piece.getModelRotation();
           preferences.put(FURNITURE_MODEL_ROTATION + i, 
               floatToString(modelRotation[0][0]) + " " + floatToString(modelRotation[0][1]) + " " + floatToString(modelRotation[0][2]) + " "
               + floatToString(modelRotation[1][0]) + " " + floatToString(modelRotation[1][1]) + " " + floatToString(modelRotation[1][2]) + " "
               + floatToString(modelRotation[2][0]) + " " + floatToString(modelRotation[2][1]) + " " + floatToString(modelRotation[2][2]));
-          if (piece.getStaircaseCutOutShape() != null) {
-            preferences.put(FURNITURE_STAIRCASE_CUT_OUT_SHAPE + i, piece.getStaircaseCutOutShape());
-          }
           preferences.putBoolean(FURNITURE_BACK_FACE_SHOWN + i, piece.isBackFaceShown());
+          if (piece.getModelSize() != null) {
+            preferences.putLong(FURNITURE_MODEL_SIZE + i, piece.getModelSize());
+          } else {
+            preferences.remove(FURNITURE_MODEL_SIZE + i);
+          }
+          if (piece.getCreator() != null) {
+            preferences.put(FURNITURE_CREATOR + i, piece.getCreator());
+          } else {
+            preferences.remove(FURNITURE_CREATOR + i);
+          }
           preferences.putFloat(FURNITURE_ICON_YAW + i, piece.getIconYaw());
           preferences.putBoolean(FURNITURE_PROPORTIONAL + i, piece.isProportional());
           i++;
@@ -989,13 +1078,15 @@ public class FileUserPreferences extends UserPreferences {
       preferences.remove(FURNITURE_WIDTH + i);
       preferences.remove(FURNITURE_DEPTH + i);
       preferences.remove(FURNITURE_HEIGHT + i);
+      preferences.remove(FURNITURE_ELEVATION + i);
       preferences.remove(FURNITURE_MOVABLE + i);
       preferences.remove(FURNITURE_DOOR_OR_WINDOW + i);
-      preferences.remove(FURNITURE_ELEVATION + i);
+      preferences.remove(FURNITURE_STAIRCASE_CUT_OUT_SHAPE + i);
       preferences.remove(FURNITURE_COLOR + i);
       preferences.remove(FURNITURE_MODEL_ROTATION + i);
-      preferences.remove(FURNITURE_STAIRCASE_CUT_OUT_SHAPE + i);
       preferences.remove(FURNITURE_BACK_FACE_SHOWN + i);
+      preferences.remove(FURNITURE_MODEL_SIZE + i);
+      preferences.remove(FURNITURE_CREATOR + i);
       preferences.remove(FURNITURE_ICON_YAW + i);
       preferences.remove(FURNITURE_PROPORTIONAL + i);
     }
@@ -1018,11 +1109,44 @@ public class FileUserPreferences extends UserPreferences {
   }
     
   /**
-   * Writes modifiable textures catalog in <code>preferences</code>.
+   * Writes recent textures and modifiable textures catalog in <code>preferences</code>.
    */
-  private void writeModifiableTexturesCatalog(Preferences preferences) throws RecorderException {
+  private void writeRecentAndModifiableTexturesCatalog(Preferences preferences) throws RecorderException {
     final Set<URL> texturesContentURLs = new HashSet<URL>();
+    // Save recent textures
     int i = 1;
+    for (TextureImage texture : getRecentTextures()) {
+      preferences.put(RECENT_TEXTURE_NAME + i, texture.getName());
+      putContent(preferences, RECENT_TEXTURE_IMAGE + i, texture.getImage(), 
+          TEXTURE_CONTENT_PREFIX, texturesContentURLs);
+      if (texture.getWidth() != -1) {
+        preferences.putFloat(RECENT_TEXTURE_WIDTH + i, texture.getWidth());
+      } else {
+        preferences.remove(RECENT_TEXTURE_WIDTH + i);
+      }
+      if (texture.getHeight() != -1) {
+        preferences.putFloat(RECENT_TEXTURE_HEIGHT + i, texture.getHeight());
+      } else {
+        preferences.remove(RECENT_TEXTURE_HEIGHT + i);
+      }
+      if (texture.getCreator() != null) {
+        preferences.put(RECENT_TEXTURE_CREATOR + i, texture.getCreator());
+      } else {
+        preferences.remove(RECENT_TEXTURE_CREATOR + i);
+      }
+      i++;
+    }
+    // Remove obsolete keys
+    for ( ; preferences.get(RECENT_TEXTURE_NAME + i, null) != null; i++) {
+      preferences.remove(RECENT_TEXTURE_NAME + i);
+      preferences.remove(RECENT_TEXTURE_IMAGE + i);
+      preferences.remove(RECENT_TEXTURE_WIDTH + i);
+      preferences.remove(RECENT_TEXTURE_HEIGHT + i);
+      preferences.remove(RECENT_TEXTURE_CREATOR + i);
+    }
+    
+    // Save modifiable textures
+    i = 1;
     for (TexturesCategory category : getTexturesCatalog().getCategories()) {
       for (CatalogTexture texture : category.getTextures()) {
         if (texture.isModifiable()) {
@@ -1032,6 +1156,11 @@ public class FileUserPreferences extends UserPreferences {
               TEXTURE_CONTENT_PREFIX, texturesContentURLs);
           preferences.putFloat(TEXTURE_WIDTH + i, texture.getWidth());
           preferences.putFloat(TEXTURE_HEIGHT + i, texture.getHeight());
+          if (texture.getCreator() != null) {
+            preferences.put(TEXTURE_CREATOR + i, texture.getCreator());
+          } else {
+            preferences.remove(TEXTURE_CREATOR + i);
+          }
           i++;
         }
       }
@@ -1043,7 +1172,9 @@ public class FileUserPreferences extends UserPreferences {
       preferences.remove(TEXTURE_IMAGE + i);
       preferences.remove(TEXTURE_WIDTH + i);
       preferences.remove(TEXTURE_HEIGHT + i);
+      preferences.remove(TEXTURE_CREATOR + i);
     }
+    
     deleteObsoleteContent(texturesContentURLs, TEXTURE_CONTENT_PREFIX);
   }
 
@@ -1052,41 +1183,44 @@ public class FileUserPreferences extends UserPreferences {
    */
   private void putContent(Preferences preferences, String key, 
                           Content content, String contentPrefix,
-                          Set<URL> furnitureContentURLs) throws RecorderException {
-    if (content instanceof TemporaryURLContent) {
-      URLContent urlContent = (URLContent)content;
-      URLContent copiedContent;
-      if (urlContent.isJAREntry()) {
-        try {
-          // If content is a JAR entry copy the content of its URL and rebuild a new URL content from 
-          // this copy and the entry name
-          copiedContent = copyToPreferencesURLContent(new URLContent(urlContent.getJAREntryURL()), contentPrefix);
-          copiedContent = new URLContent(new URL("jar:" + copiedContent.getURL() + "!/" + urlContent.getJAREntryName()));
-        } catch (MalformedURLException ex) {
-          // Shouldn't happen
-          throw new RecorderException("Can't build URL", ex);
-        }
-      } else {
-        copiedContent = copyToPreferencesURLContent(urlContent, contentPrefix);
-      }
-      putContent(preferences, key, copiedContent, contentPrefix, furnitureContentURLs);
-    } else if (content instanceof URLContent) {
-      URLContent urlContent = (URLContent)content;
+                          Set<URL> savedContentURLs) throws RecorderException {
+    if (content instanceof PreferencesURLContent) {
+      PreferencesURLContent preferencesContent = (PreferencesURLContent)content;
       try {
-        preferences.put(key, urlContent.getURL().toString()
+        preferences.put(key, preferencesContent.getURL().toString()
             .replace(getPreferencesFolder().toURI().toURL().toString(), "file:"));
       } catch (IOException ex) {
         throw new RecorderException("Can't save content", ex);
       }
       // Add to furnitureContentURLs the URL to the application file
-      if (urlContent.isJAREntry()) {
-        furnitureContentURLs.add(urlContent.getJAREntryURL());
+      if (preferencesContent.isJAREntry()) {
+        savedContentURLs.add(preferencesContent.getJAREntryURL());
       } else {
-        furnitureContentURLs.add(urlContent.getURL());
+        savedContentURLs.add(preferencesContent.getURL());
       }
     } else {
-      putContent(preferences, key, copyToPreferencesURLContent(content, contentPrefix), 
-          contentPrefix, furnitureContentURLs);
+      PreferencesURLContent preferencesContent = this.copiedContentsCache.get(content);
+      if (preferencesContent == null) {
+        if (content instanceof TemporaryURLContent
+            && ((TemporaryURLContent)content).isJAREntry()) {
+          URLContent urlContent = (URLContent)content;
+          try {
+            // If content is a JAR entry copy the content of its URL and rebuild a new URL content from 
+            // this copy and the entry name
+            PreferencesURLContent copiedContent = copyToPreferencesURLContent(new URLContent(urlContent.getJAREntryURL()), contentPrefix);
+            preferencesContent = new PreferencesURLContent(new URL("jar:" + copiedContent.getURL() + "!/" + urlContent.getJAREntryName()));
+          } catch (MalformedURLException ex) {
+            // Shouldn't happen
+            throw new RecorderException("Can't build URL", ex);
+          }
+        } else {
+          preferencesContent = copyToPreferencesURLContent(content, contentPrefix);
+        }
+        // Store the copied content in cache to avoid copying it again the next time preferences are written
+        this.copiedContentsCache.put(content, preferencesContent);
+      }
+      
+      putContent(preferences, key, preferencesContent, contentPrefix, savedContentURLs);
     }
   }
 
@@ -1094,8 +1228,8 @@ public class FileUserPreferences extends UserPreferences {
    * Returns a content object that references a copy of <code>content</code> in 
    * user preferences folder.
    */
-  private URLContent copyToPreferencesURLContent(Content content, 
-                                                 String contentPrefix) throws RecorderException {
+  private PreferencesURLContent copyToPreferencesURLContent(Content content, 
+                                                            String contentPrefix) throws RecorderException {
     InputStream tempIn = null;
     OutputStream tempOut = null;
     try {
@@ -1107,7 +1241,7 @@ public class FileUserPreferences extends UserPreferences {
       while ((size = tempIn.read(buffer)) != -1) {
         tempOut.write(buffer, 0, size);
       }
-      return new URLContent(preferencesFile.toURI().toURL());
+      return new PreferencesURLContent(preferencesFile.toURI().toURL());
     } catch (IOException ex) {
       throw new RecorderException("Can't save content", ex);
     } finally {
@@ -1519,11 +1653,21 @@ public class FileUserPreferences extends UserPreferences {
   public boolean isLibraryDeletable(Library library) {
     return new File(library.getLocation()).canWrite();    
   }
+
+  
+  /**
+   * A content stored in preferences. 
+   */
+  private static class PreferencesURLContent extends URLContent {
+    public PreferencesURLContent(URL url) {
+      super(url);
+    }
+  }
+  
   
   /**
    * Preferences based on the <code>preferences.xml</code> file
-   * stored in a preferences folder.  
-   * @author Emmanuel Puybaret
+   * stored in a preferences folder.
    */
   private class PortablePreferences extends AbstractPreferences {
     private static final String PREFERENCES_FILE = "preferences.xml"; 

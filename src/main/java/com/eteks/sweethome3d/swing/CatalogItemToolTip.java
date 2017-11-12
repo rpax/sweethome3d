@@ -27,6 +27,8 @@ import java.awt.Insets;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
+import java.text.Format;
+import java.text.NumberFormat;
 
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
@@ -35,6 +37,7 @@ import javax.swing.JToolTip;
 
 import com.eteks.sweethome3d.model.CatalogItem;
 import com.eteks.sweethome3d.model.CatalogPieceOfFurniture;
+import com.eteks.sweethome3d.model.CatalogTexture;
 import com.eteks.sweethome3d.model.UserPreferences;
 import com.eteks.sweethome3d.tools.OperatingSystem;
 import com.eteks.sweethome3d.tools.URLContent;
@@ -105,10 +108,26 @@ public class CatalogItemToolTip extends JToolTip {
   public void setCatalogItem(CatalogItem item) {
     if (item != this.catalogItem) {
       String tipTextCreator = null;
+      String tipTextDimensions = null;
+      String tipTextModelSize = null;
       if (this.preferences != null) {
         String creator = item.getCreator();
-        if (creator != null) {
+        if (creator != null && creator.length() > 0) {
           tipTextCreator = this.preferences.getLocalizedString(CatalogItemToolTip.class, "tooltipCreator", creator);
+        }
+        Format format = this.preferences.getLengthUnit().getFormatWithUnit();
+        if (item instanceof CatalogPieceOfFurniture) {
+          CatalogPieceOfFurniture piece = (CatalogPieceOfFurniture)item;
+          tipTextDimensions = this.preferences.getLocalizedString(CatalogItemToolTip.class, "tooltipPieceOfFurnitureDimensions",
+              format.format(piece.getWidth()), format.format(piece.getDepth()), format.format(piece.getHeight()));
+          if (piece.getModelSize() != null && piece.getModelSize() > 0) {
+            tipTextModelSize = this.preferences.getLocalizedString(CatalogItemToolTip.class, "tooltipModelSize",
+                NumberFormat.getIntegerInstance().format(Math.max(1, (int)Math.round(piece.getModelSize() / 1000.))));
+          }
+        } else if (item instanceof CatalogTexture) {
+          CatalogTexture piece = (CatalogTexture)item;
+          tipTextDimensions = this.preferences.getLocalizedString(CatalogItemToolTip.class, "tooltipTextureDimensions",
+              format.format(piece.getWidth()), format.format(piece.getHeight()));
         }
       }
       
@@ -125,6 +144,12 @@ public class CatalogItemToolTip extends JToolTip {
           }
           
           tipText += "<b>" + item.getName() + "</b>";
+          if (tipTextDimensions != null) {
+            tipText += "<br>" + tipTextDimensions;
+          }
+          if (tipTextModelSize != null) {
+            tipText += "<br>" + tipTextModelSize;
+          }
           if (tipTextCreator != null) {
             tipText += "<br>" + tipTextCreator;
           }
@@ -146,6 +171,12 @@ public class CatalogItemToolTip extends JToolTip {
             tipText += "- <b>" + ((CatalogPieceOfFurniture)item).getCategory().getName() + "</b> -<br>";
           }
           tipText += "<b>" + item.getName() + "</b>";
+          if (tipTextDimensions != null) {
+            tipText += "<br>" + tipTextDimensions;
+          }
+          if (tipTextModelSize != null) {
+            tipText += "<br>" + tipTextModelSize;
+          }
           if (tipTextCreator != null) {
             tipText += "<br>" + tipTextCreator;
           }

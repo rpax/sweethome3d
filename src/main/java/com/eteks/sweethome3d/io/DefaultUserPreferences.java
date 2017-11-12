@@ -20,12 +20,16 @@
 package com.eteks.sweethome3d.io;
 
 import java.io.File;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
+import com.eteks.sweethome3d.model.Content;
 import com.eteks.sweethome3d.model.FurnitureCatalog;
+import com.eteks.sweethome3d.model.HomeDescriptor;
 import com.eteks.sweethome3d.model.LengthUnit;
 import com.eteks.sweethome3d.model.Library;
 import com.eteks.sweethome3d.model.PatternsCatalog;
@@ -33,6 +37,8 @@ import com.eteks.sweethome3d.model.RecorderException;
 import com.eteks.sweethome3d.model.TextureImage;
 import com.eteks.sweethome3d.model.TexturesCatalog;
 import com.eteks.sweethome3d.model.UserPreferences;
+import com.eteks.sweethome3d.tools.ResourceURLContent;
+import com.eteks.sweethome3d.tools.URLContent;
 
 /**
  * Default user preferences.
@@ -83,6 +89,7 @@ public class DefaultUserPreferences extends UserPreferences {
         localizedPreferences.getLocalizedString(DefaultUserPreferences.class, "furnitureCatalogViewedInTree")));
     setNavigationPanelVisible(Boolean.parseBoolean(localizedPreferences.getLocalizedString(DefaultUserPreferences.class, "navigationPanelVisible")));  
     setAerialViewCenteredOnSelectionEnabled(Boolean.parseBoolean(getOptionalLocalizedString(localizedPreferences, "aerialViewCenteredOnSelectionEnabled", "false")));
+    setObserverCameraSelectedAtChange(Boolean.parseBoolean(getOptionalLocalizedString(localizedPreferences, "observerCameraSelectedAtChange", "true")));
     setUnit(LengthUnit.valueOf(localizedPreferences.getLocalizedString(DefaultUserPreferences.class, "unit").toUpperCase(Locale.ENGLISH)));
     setRulersVisible(Boolean.parseBoolean(localizedPreferences.getLocalizedString(DefaultUserPreferences.class, "rulersVisible")));
     setGridVisible(Boolean.parseBoolean(localizedPreferences.getLocalizedString(DefaultUserPreferences.class, "gridVisible")));
@@ -90,6 +97,7 @@ public class DefaultUserPreferences extends UserPreferences {
     String osName = System.getProperty("os.name");
     setFurnitureViewedFromTop(Boolean.parseBoolean(getOptionalLocalizedString(localizedPreferences, "furnitureViewedFromTop." + osName, 
         localizedPreferences.getLocalizedString(DefaultUserPreferences.class, "furnitureViewedFromTop"))));
+    setFurnitureModelIconSize(Integer.parseInt(getOptionalLocalizedString(localizedPreferences, "furnitureModelIconSize", "128")));
     setFloorColoredOrTextured(Boolean.parseBoolean(getOptionalLocalizedString(localizedPreferences, "roomFloorColoredOrTextured." + osName,
         localizedPreferences.getLocalizedString(DefaultUserPreferences.class, "roomFloorColoredOrTextured"))));
     setWallPattern(patternsCatalog.getPattern(localizedPreferences.getLocalizedString(DefaultUserPreferences.class, "wallPattern")));
@@ -117,8 +125,42 @@ public class DefaultUserPreferences extends UserPreferences {
         }
       }
     }
+    List<HomeDescriptor> homeExamples = new ArrayList<HomeDescriptor>();
+    int i = 0;
+    while (true) {
+      try {
+        String homeExampleName = localizedPreferences.getLocalizedString(DefaultUserPreferences.class, "homeExampleName#" + ++i);
+        homeExamples.add(new HomeDescriptor(homeExampleName,
+            getContent(localizedPreferences, "homeExampleContent#" + i, false), 
+            getContent(localizedPreferences, "homeExampleIcon#" + i, true)));
+      } catch (IllegalArgumentException ex) {
+        break;
+      }
+    }
+    setHomeExamples(homeExamples);
   }
-  
+
+  /**
+   * Returns the content of matching the value of the given content key.
+   */
+  private Content getContent(UserPreferences localizedPreferences, 
+                             String contentKey,
+                             boolean optional) {
+    String contentFile = optional
+        ? getOptionalLocalizedString(localizedPreferences, contentKey, null)
+        : localizedPreferences.getLocalizedString(DefaultUserPreferences.class, contentKey);
+    if (optional && contentFile == null) {
+      return null;
+    }
+    try {
+      // Try first to interpret contentFile as an absolute URL 
+      return new URLContent(new URL(contentFile));
+    } catch (MalformedURLException ex) {
+      // Otherwise find if it's a resource
+      return new ResourceURLContent(DefaultFurnitureCatalog.class, contentFile);
+    }
+  }
+
   private String getOptionalLocalizedString(UserPreferences localizedPreferences, 
                                             String   resourceKey,
                                             String   defaultValue) {

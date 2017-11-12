@@ -100,6 +100,12 @@ public interface PieceOfFurniture {
   public abstract Content getModel();
   
   /**
+   * Returns the size of the 3D model of this piece of furniture or <code>null</code> if not known.
+   * @since 5.5 
+   */
+  public abstract Long getModelSize();
+  
+  /**
    * Returns the rotation 3 by 3 matrix of this piece of furniture that ensures 
    * its model is correctly oriented.
    */
@@ -140,12 +146,25 @@ public interface PieceOfFurniture {
    * @since 3.0
    */
   public abstract boolean isDeformable();
-
+  
+  /**
+   * Returns <code>true</code> if the width and depth of this piece may 
+   * be changed independently from each other.
+   * @since 5.5
+   */
+  boolean isWidthDepthDeformable();
+  
   /**
    * Returns <code>false</code> if this piece should always keep the same color or texture.
    * @since 3.0
    */
   public abstract boolean isTexturable();
+
+  /**
+   * Returns <code>false</code> if this piece should not rotate around an horizontal axis.
+   * @since 5.5
+   */
+ boolean isHorizontallyRotatable();
   
   /**
    * Returns the price of this piece of furniture or <code>null</code>. 

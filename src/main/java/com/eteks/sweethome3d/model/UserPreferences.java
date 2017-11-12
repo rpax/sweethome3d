@@ -49,11 +49,11 @@ public abstract class UserPreferences {
    * to user preferences will be notified under a property name equal to the string value of one these properties.
    */
   public enum Property {LANGUAGE, SUPPORTED_LANGUAGES, UNIT, MAGNETISM_ENABLED, RULERS_VISIBLE, GRID_VISIBLE, DEFAULT_FONT_NAME, 
-                        FURNITURE_VIEWED_FROM_TOP, ROOM_FLOOR_COLORED_OR_TEXTURED, WALL_PATTERN, NEW_WALL_PATTERN,    
+                        FURNITURE_VIEWED_FROM_TOP, FURNITURE_MODEL_ICON_SIZE, ROOM_FLOOR_COLORED_OR_TEXTURED, WALL_PATTERN, NEW_WALL_PATTERN,    
                         NEW_WALL_THICKNESS, NEW_WALL_HEIGHT, NEW_WALL_SIDEBOARD_THICKNESS, NEW_WALL_SIDEBOARD_HEIGHT, NEW_FLOOR_THICKNESS, 
                         RECENT_HOMES, IGNORED_ACTION_TIP, FURNITURE_CATALOG_VIEWED_IN_TREE, NAVIGATION_PANEL_VISIBLE, 
-                        AERIAL_VIEW_CENTERED_ON_SELECTION_ENABLED, CHECK_UPDATES_ENABLED, UPDATES_MINIMUM_DATE, AUTO_SAVE_DELAY_FOR_RECOVERY, 
-                        AUTO_COMPLETION_STRINGS, RECENT_COLORS, RECENT_TEXTURES}
+                        AERIAL_VIEW_CENTERED_ON_SELECTION_ENABLED, OBSERVER_CAMERA_SELECTED_AT_CHANGE, CHECK_UPDATES_ENABLED, 
+                        UPDATES_MINIMUM_DATE, AUTO_SAVE_DELAY_FOR_RECOVERY, AUTO_COMPLETION_STRINGS, RECENT_COLORS, RECENT_TEXTURES, HOME_EXAMPLES}
   
   public static final String FURNITURE_LIBRARY_TYPE = "Furniture library"; 
   public static final String TEXTURES_LIBRARY_TYPE  = "Textures library"; 
@@ -98,12 +98,14 @@ public abstract class UserPreferences {
   private LengthUnit       unit;
   private boolean          furnitureCatalogViewedInTree = true;
   private boolean          aerialViewCenteredOnSelectionEnabled;
+  private boolean          observerCameraSelectedAtChange = true;
   private boolean          navigationPanelVisible = true;
   private boolean          magnetismEnabled    = true;
   private boolean          rulersVisible       = true;
   private boolean          gridVisible         = true;
   private String           defaultFontName;
   private boolean          furnitureViewedFromTop;
+  private int              furnitureModelIconSize = 128;
   private boolean          roomFloorColoredOrTextured;
   private TextureImage     wallPattern;
   private TextureImage     newWallPattern;
@@ -117,8 +119,9 @@ public abstract class UserPreferences {
   private Long             updatesMinimumDate;
   private int              autoSaveDelayForRecovery;
   private Map<String, List<String>>  autoCompletionStrings;
-  private List<Integer>      recentColors;
-  private List<TextureImage> recentTextures;
+  private List<Integer>        recentColors;
+  private List<TextureImage>   recentTextures;
+  private List<HomeDescriptor> homeExamples;
 
   /**
    * Creates user preferences.<br> 
@@ -132,6 +135,7 @@ public abstract class UserPreferences {
     this.recentHomes = Collections.emptyList();
     this.recentColors = Collections.emptyList();
     this.recentTextures = Collections.emptyList();
+    this.homeExamples = Collections.emptyList();
 
     this.supportedLanguages = DEFAULT_SUPPORTED_LANGUAGES;
     this.defaultCountry = Locale.getDefault().getCountry();    
@@ -546,6 +550,26 @@ public abstract class UserPreferences {
   }
 
   /**
+   * Sets whether the observer camera should be selected at each change.
+   * @since 5.5
+   */
+  public void setObserverCameraSelectedAtChange(boolean observerCameraSelectedAtChange) {
+    if (observerCameraSelectedAtChange != this.observerCameraSelectedAtChange) {
+      this.observerCameraSelectedAtChange = observerCameraSelectedAtChange;
+      this.propertyChangeSupport.firePropertyChange(Property.OBSERVER_CAMERA_SELECTED_AT_CHANGE.name(), 
+          !observerCameraSelectedAtChange, observerCameraSelectedAtChange);
+    }
+  }
+  
+  /**
+   * Returns whether the observer camera should be selected at each change.
+   * @since 5.5
+   */
+  public boolean isObserverCameraSelectedAtChange() {
+    return this.observerCameraSelectedAtChange;
+  }
+
+  /**
    * Returns <code>true</code> if magnetism is enabled.
    * @return <code>true</code> by default.
    */
@@ -653,6 +677,26 @@ public abstract class UserPreferences {
       this.furnitureViewedFromTop = furnitureViewedFromTop;
       this.propertyChangeSupport.firePropertyChange(Property.FURNITURE_VIEWED_FROM_TOP.name(), 
           !furnitureViewedFromTop, furnitureViewedFromTop);
+    }
+  }
+
+  /**
+   * Returns the size used to generate icons of furniture viewed from top.
+   * @since 5.5
+   */
+  public int getFurnitureModelIconSize() {
+    return this.furnitureModelIconSize;
+  }
+
+  /**
+   * Sets the name of the font that should be used by default.
+   * @since 5.5
+   */
+  public void setFurnitureModelIconSize(int furnitureModelIconSize) {
+    if (furnitureModelIconSize != this.furnitureModelIconSize) {
+      int oldSize = this.furnitureModelIconSize;
+      this.furnitureModelIconSize = furnitureModelIconSize;
+      this.propertyChangeSupport.firePropertyChange(Property.FURNITURE_MODEL_ICON_SIZE.name(), oldSize, furnitureModelIconSize);
     }
   }
 
@@ -1071,6 +1115,27 @@ public abstract class UserPreferences {
     }
   }
 
+  /**
+   * Sets the home examples available for the user.
+   * @since 5.5
+   */
+  protected void setHomeExamples(List<HomeDescriptor> homeExamples) {
+    if (!homeExamples.equals(this.homeExamples)) {
+      List<HomeDescriptor> oldExamples = this.homeExamples;
+      this.homeExamples = new ArrayList<HomeDescriptor>(homeExamples);
+      this.propertyChangeSupport.firePropertyChange(Property.HOME_EXAMPLES.name(), 
+          oldExamples, getHomeExamples());
+    }
+  }
+
+  /**
+   * Returns the home examples available for the user.
+   * @since 5.5
+   */
+  public List<HomeDescriptor> getHomeExamples() {
+    return Collections.unmodifiableList(this.homeExamples);
+  }
+  
   /**
    * Adds the language library to make the languages it contains available to supported languages.
    * @param languageLibraryLocation  the location where the library can be found. 

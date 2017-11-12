@@ -22,6 +22,7 @@ package com.eteks.sweethome3d.viewcontroller;
 import java.util.List;
 
 import com.eteks.sweethome3d.model.DimensionLine;
+import com.eteks.sweethome3d.model.HomePieceOfFurniture;
 import com.eteks.sweethome3d.model.Selectable;
 import com.eteks.sweethome3d.model.TextStyle;
 
@@ -29,7 +30,7 @@ import com.eteks.sweethome3d.model.TextStyle;
  * The view that displays the plan of a home.
  * @author Emmanuel Puybaret
  */
-public interface PlanView extends View {
+public interface PlanView extends TransferableView, ExportableView {
   /**
    * The cursor types available in plan view.
    */
@@ -179,4 +180,14 @@ public interface PlanView extends View {
    * Returns <code>true</code> if this plan accepts to import dragged items at the given coordinates.
    */
   public abstract boolean canImportDraggedItems(List<Selectable> items, int x, int y);
+
+  /**
+   * Returns the size of the given piece of furniture in the horizontal plan.
+   */
+  public abstract float [] getPieceOfFurnitureSizeInPlan(HomePieceOfFurniture piece);
+  
+  /**
+   * Returns <code>true</code> if the view is able to compute the size of horizontally rotated furniture.
+   */
+  public abstract boolean isFurnitureSizeInPlanSupported();
 }

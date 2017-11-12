@@ -30,6 +30,7 @@ import java.math.BigDecimal;
 import java.security.AccessControlException;
 
 import javax.swing.ButtonGroup;
+import javax.swing.ImageIcon;
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
@@ -39,6 +40,7 @@ import javax.swing.JRadioButton;
 import javax.swing.JSpinner;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
+import javax.swing.UIManager;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.DocumentEvent;
@@ -71,9 +73,13 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
   private JSpinner                ySpinner;
   private JLabel                  elevationLabel;
   private JSpinner                elevationSpinner;
+  private NullableCheckBox        basePlanItemCheckBox;
   private JLabel                  angleLabel;
   private JSpinner                angleSpinner;
-  private NullableCheckBox        basePlanItemCheckBox;
+  private JRadioButton            rollRadioButton;
+  private JSpinner                rollSpinner;
+  private JRadioButton            pitchRadioButton;
+  private JSpinner                pitchSpinner;
   private JLabel                  widthLabel;
   private JSpinner                widthSpinner;
   private JLabel                  depthLabel;
@@ -225,7 +231,7 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
       final PropertyChangeListener priceChangeListener = new PropertyChangeListener() {
           public void propertyChange(PropertyChangeEvent ev) {
             priceSpinnerModel.setNullable(ev.getNewValue() == null);
-            priceSpinnerModel.setValue(((Number)ev.getNewValue()).floatValue());
+            priceSpinnerModel.setValue(ev.getNewValue() != null ? ((Number)ev.getNewValue()).floatValue() : null);
           }
         };
       controller.addPropertyChangeListener(HomeFurnitureController.Property.PRICE, priceChangeListener);
@@ -315,38 +321,138 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
         });
     }
     
-    if (controller.isPropertyEditable(HomeFurnitureController.Property.ANGLE_IN_DEGREES)) {
-      // Create angle label and its spinner bound to ANGLE_IN_DEGREES controller property
+    if (controller.isPropertyEditable(HomeFurnitureController.Property.ANGLE_IN_DEGREES)
+        || controller.isPropertyEditable(HomeFurnitureController.Property.ANGLE)) {
+      // Create angle label and its spinner bound to ANGLE controller property
       this.angleLabel = new JLabel(SwingTools.getLocalizedLabelText(preferences, HomeFurniturePanel.class,
           "angleLabel.text"));
       final NullableSpinner.NullableSpinnerNumberModel angleSpinnerModel = new NullableSpinner.NullableSpinnerModuloNumberModel(
-          0, 0, 360, 1);
+          0f, 0f, 360f, 1f);
       this.angleSpinner = new NullableSpinner(angleSpinnerModel);
-      Integer angle = controller.getAngleInDegrees();
+      Float angle = controller.getAngle();
       angleSpinnerModel.setNullable(angle == null);
-      angleSpinnerModel.setValue(angle);
+      angleSpinnerModel.setValue(angle != null ? new Float((float)Math.toDegrees(angle)) : null);
       final PropertyChangeListener angleChangeListener = new PropertyChangeListener() {
           public void propertyChange(PropertyChangeEvent ev) {
-            Integer newAngle = (Integer)ev.getNewValue();
+            Float newAngle = (Float)ev.getNewValue();
             angleSpinnerModel.setNullable(newAngle == null);
-            angleSpinnerModel.setValue(newAngle);
+            angleSpinnerModel.setValue(newAngle != null ? new Float((float)Math.toDegrees(newAngle)) : null);
           }
         };
-      controller.addPropertyChangeListener(HomeFurnitureController.Property.ANGLE_IN_DEGREES, angleChangeListener);
+      controller.addPropertyChangeListener(HomeFurnitureController.Property.ANGLE, angleChangeListener);
       angleSpinnerModel.addChangeListener(new ChangeListener() {
           public void stateChanged(ChangeEvent ev) {
-            controller.removePropertyChangeListener(HomeFurnitureController.Property.ANGLE_IN_DEGREES,
+            controller.removePropertyChangeListener(HomeFurnitureController.Property.ANGLE,
                 angleChangeListener);
             Number value = (Number)angleSpinnerModel.getValue();
             if (value == null) {
-              controller.setAngleInDegrees(null);
+              controller.setAngle(null);
             } else {
-              controller.setAngleInDegrees(value.intValue());
+              controller.setAngle((float)Math.toRadians(value.doubleValue()));
             }
-            controller.addPropertyChangeListener(HomeFurnitureController.Property.ANGLE_IN_DEGREES, angleChangeListener);
+            controller.addPropertyChangeListener(HomeFurnitureController.Property.ANGLE, angleChangeListener);
           }
         });
     }
+    
+    if (!Boolean.getBoolean("com.eteks.sweethome3d.no3D")) {
+      if (controller.isPropertyEditable(HomeFurnitureController.Property.ROLL)) {
+        // Create roll label and its spinner bound to ROLL_IN_DEGREES controller property
+        this.rollRadioButton = new JRadioButton(SwingTools.getLocalizedLabelText(preferences, HomeFurniturePanel.class,
+            "rollRadioButton.text"));
+        this.rollRadioButton.addChangeListener(new ChangeListener() {
+          public void stateChanged(ChangeEvent ev) {
+            if (rollRadioButton.isSelected()) {
+              controller.setHorizontalAxis(HomeFurnitureController.FurnitureHorizontalAxis.ROLL);
+            }
+          }
+        });
+        
+        final NullableSpinner.NullableSpinnerNumberModel rollSpinnerModel = new NullableSpinner.NullableSpinnerModuloNumberModel(
+            0f, 0f, 360f, 1f);
+        this.rollSpinner = new NullableSpinner(rollSpinnerModel);
+        Float roll = controller.getRoll();
+        rollSpinnerModel.setNullable(roll == null);
+        rollSpinnerModel.setValue(roll != null ? new Float((float)Math.toDegrees(roll)) : null);
+        final PropertyChangeListener rollChangeListener = new PropertyChangeListener() {
+            public void propertyChange(PropertyChangeEvent ev) {
+              Float newRoll = (Float)ev.getNewValue();
+              rollSpinnerModel.setNullable(newRoll == null);
+              rollSpinnerModel.setValue(newRoll != null ? new Float((float)Math.toDegrees(newRoll)) : null);
+            }
+          };
+        controller.addPropertyChangeListener(HomeFurnitureController.Property.ROLL, rollChangeListener);
+        rollSpinnerModel.addChangeListener(new ChangeListener() {
+            public void stateChanged(ChangeEvent ev) {
+              controller.removePropertyChangeListener(HomeFurnitureController.Property.ROLL,
+                  rollChangeListener);
+              Number value = (Number)rollSpinnerModel.getValue();
+              if (value == null) {
+                controller.setRoll(null);
+              } else {
+                controller.setRoll((float)Math.toRadians(value.floatValue()));
+              }
+              controller.setHorizontalAxis(HomeFurnitureController.FurnitureHorizontalAxis.ROLL);
+              controller.addPropertyChangeListener(HomeFurnitureController.Property.ROLL, rollChangeListener);
+            }
+          });
+      }
+      
+      if (controller.isPropertyEditable(HomeFurnitureController.Property.PITCH)) {
+        // Create pitch label and its spinner bound to PITCH_IN_DEGREES controller property
+        this.pitchRadioButton = new JRadioButton(SwingTools.getLocalizedLabelText(preferences, HomeFurniturePanel.class,
+            "pitchRadioButton.text"));
+        this.pitchRadioButton.addChangeListener(new ChangeListener() {
+            public void stateChanged(ChangeEvent ev) {
+              if (pitchRadioButton.isSelected()) {
+                controller.setHorizontalAxis(HomeFurnitureController.FurnitureHorizontalAxis.PITCH);
+              }
+            }
+          });
+        
+        final NullableSpinner.NullableSpinnerNumberModel pitchSpinnerModel = new NullableSpinner.NullableSpinnerModuloNumberModel(
+            0f, 0f, 360f, 1f);
+        this.pitchSpinner = new NullableSpinner(pitchSpinnerModel);
+        Float pitch = controller.getPitch();
+        pitchSpinnerModel.setNullable(pitch == null);
+        pitchSpinnerModel.setValue(pitch != null ? new Float((float)Math.toDegrees(pitch)) : null);
+        final PropertyChangeListener pitchChangeListener = new PropertyChangeListener() {
+            public void propertyChange(PropertyChangeEvent ev) {
+              Float newPitch = (Float)ev.getNewValue();
+              pitchSpinnerModel.setNullable(newPitch == null);
+              pitchSpinnerModel.setValue(newPitch != null ? new Float((float)Math.toDegrees(newPitch)) : null);
+            }
+          };
+        controller.addPropertyChangeListener(HomeFurnitureController.Property.PITCH, pitchChangeListener);
+        pitchSpinnerModel.addChangeListener(new ChangeListener() {
+            public void stateChanged(ChangeEvent ev) {
+              controller.removePropertyChangeListener(HomeFurnitureController.Property.PITCH,
+                  pitchChangeListener);
+              Number value = (Number)pitchSpinnerModel.getValue();
+              if (value == null) {
+                controller.setPitch(null);
+              } else {
+                controller.setPitch((float)Math.toRadians(value.floatValue()));
+              }
+              controller.setHorizontalAxis(HomeFurnitureController.FurnitureHorizontalAxis.PITCH);
+              controller.addPropertyChangeListener(HomeFurnitureController.Property.PITCH, pitchChangeListener);
+            }
+          });
+      }
+      
+      if (this.rollRadioButton != null && this.pitchRadioButton != null) {
+        ButtonGroup group = new ButtonGroup();
+        group.add(this.rollRadioButton);
+        group.add(this.pitchRadioButton);
+        updateHorizontalAxisRadioButtons(controller);
+        controller.addPropertyChangeListener(HomeFurnitureController.Property.HORIZONTAL_AXIS, new PropertyChangeListener() {
+            public void propertyChange(PropertyChangeEvent ev) {
+              updateHorizontalAxisRadioButtons(controller);
+            }
+          });
+      }
+    }
+    
     
     if (controller.isPropertyEditable(HomeFurnitureController.Property.BASE_PLAN_ITEM)) {
       // Create base plan item check box bound to BASE_PLAN_ITEM controller property
@@ -470,11 +576,17 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
       this.keepProportionsCheckBox = new JCheckBox(SwingTools.getLocalizedLabelText(preferences,
           ImportedFurnitureWizardStepsPanel.class, "keepProportionsCheckBox.text"));
       this.keepProportionsCheckBox.addItemListener(new ItemListener() {
-        public void itemStateChanged(ItemEvent ev) {
-          controller.setProportional(keepProportionsCheckBox.isSelected());
-        }
-      });
-      this.keepProportionsCheckBox.setSelected(controller.isProportional());
+          public void itemStateChanged(ItemEvent ev) {
+            controller.setProportional(keepProportionsCheckBox.isSelected());
+          }
+        });
+      this.keepProportionsCheckBox.setSelected(controller.isProportional()
+          // Force proportional if selection is rotated around horizontal axis when no 3D is available 
+          || Boolean.getBoolean("com.eteks.sweethome3d.no3D")
+             && (controller.getRoll() == null
+                 || controller.getRoll() != 0
+                 || controller.getPitch() == null
+                 || controller.getPitch() != 0));
       controller.addPropertyChangeListener(HomeFurnitureController.Property.PROPORTIONAL, new PropertyChangeListener() {
           public void propertyChange(PropertyChangeEvent ev) {
             // If proportional property changes update keep proportions check box
@@ -500,8 +612,7 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
             mirroredModelCheckBox.setValue((Boolean) ev.getNewValue());
           }
         };
-      controller
-          .addPropertyChangeListener(HomeFurnitureController.Property.MODEL_MIRRORED, mirroredModelChangeListener);
+      controller.addPropertyChangeListener(HomeFurnitureController.Property.MODEL_MIRRORED, mirroredModelChangeListener);
       this.mirroredModelCheckBox.addChangeListener(new ChangeListener() {
           public void stateChanged(ChangeEvent ev) {
             controller.removePropertyChangeListener(HomeFurnitureController.Property.MODEL_MIRRORED,
@@ -693,7 +804,7 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
             Float lightPower = (Float) ev.getNewValue();
             lightPowerSpinnerModel.setNullable(lightPower == null);
             lightPowerSpinnerModel.setValue(lightPower != null
-                ? Math.round((Float) ev.getNewValue() * 100)
+                ? Math.round((Float)ev.getNewValue() * 100)
                 : null);
           }
         };
@@ -721,7 +832,25 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
     
     this.dialogTitle = preferences.getLocalizedString(HomeFurniturePanel.class, "homeFurniture.title");
   }
-  
+
+  /**
+   * Updates roll and pitch radio buttons.
+   */
+  private void updateHorizontalAxisRadioButtons(HomeFurnitureController controller) {
+    if (controller.getHorizontalAxis() == null) {
+      SwingTools.deselectAllRadioButtons(this.rollRadioButton, this.pitchRadioButton);
+    } else {
+      switch (controller.getHorizontalAxis()) {
+        case ROLL :
+          this.rollRadioButton.setSelected(true);
+          break;
+        case PITCH :
+          this.pitchRadioButton.setSelected(true);
+          break;
+      } 
+    }
+  }
+
   /**
    * Updates color, texture and materials radio buttons. 
    */
@@ -783,7 +912,13 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
     this.depthSpinner.setEnabled(editableSize);
     this.heightLabel.setEnabled(editableSize);
     this.heightSpinner.setEnabled(editableSize);
-    this.keepProportionsCheckBox.setEnabled(editableSize && controller.isDeformable());
+    this.keepProportionsCheckBox.setEnabled(editableSize && controller.isDeformable() 
+        // Disable proportional if selection is rotated around horizontal axis when no 3D is available 
+        && (!Boolean.getBoolean("com.eteks.sweethome3d.no3D")
+            || controller.getRoll() != null
+                && controller.getRoll() == 0
+                && controller.getPitch() != null
+                && controller.getPitch() == 0));
     this.mirroredModelCheckBox.setEnabled(editableSize);
   }
   
@@ -830,6 +965,14 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
         this.angleLabel.setDisplayedMnemonic(KeyStroke.getKeyStroke(
             preferences.getLocalizedString(HomeFurniturePanel.class, "angleLabel.mnemonic")).getKeyCode());
         this.angleLabel.setLabelFor(this.angleSpinner);
+      }
+      if (this.rollRadioButton != null) {
+        this.rollRadioButton.setMnemonic(KeyStroke.getKeyStroke(
+            preferences.getLocalizedString(HomeFurniturePanel.class, "rollRadioButton.mnemonic")).getKeyCode());
+      }
+      if (this.pitchRadioButton != null) {
+        this.pitchRadioButton.setMnemonic(KeyStroke.getKeyStroke(
+            preferences.getLocalizedString(HomeFurniturePanel.class, "pitchRadioButton.mnemonic")).getKeyCode());
       }
       if (this.keepProportionsCheckBox != null) {
         this.keepProportionsCheckBox.setMnemonic(KeyStroke.getKeyStroke(
@@ -898,6 +1041,8 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
         : GridBagConstraints.LINE_START;
     // First row    
     boolean priceDisplayed = this.priceLabel != null;
+    boolean orientationPanelDisplayed = this.angleLabel != null
+        && (this.rollRadioButton != null || this.pitchRadioButton != null);
     JPanel namePanel = SwingTools.createTitledPanel(preferences.getLocalizedString(
         HomeFurniturePanel.class, priceDisplayed  ?  "nameAndPricePanel.title"  : "namePanel.title"));
     int rowGap = OperatingSystem.isMacOSXLeopardOrSuperior() ? 0 : 5;
@@ -906,7 +1051,7 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
           0, 0, 1, 1, 0, 0, labelAlignment, GridBagConstraints.NONE,
           new Insets(0, 0, 0, 5), 0, 0));
       namePanel.add(this.nameTextField, new GridBagConstraints(
-          1, 0, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+          1, 0, 1, 1, 1, 0, GridBagConstraints.LINE_START,
           GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 10), 0, 0));
     }
     if (this.nameVisibleCheckBox != null) {
@@ -931,8 +1076,8 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
           GridBagConstraints.HORIZONTAL, new Insets(5, 0, 0, 0), 0, 0));
     }
     if (namePanel.getComponentCount() > 0) {
-      add(namePanel, new GridBagConstraints(0, 0, 3, 1, 0, 0, labelAlignment, GridBagConstraints.HORIZONTAL,
-          new Insets(0, 0, rowGap, 0), 0, 0));
+      add(namePanel, new GridBagConstraints(0, 0, orientationPanelDisplayed ? 4 : 3, 1, 0, 0, labelAlignment, 
+          GridBagConstraints.HORIZONTAL, new Insets(0, 0, rowGap, 0), 0, 0));
     }
     // Location panel
     JPanel locationPanel = SwingTools.createTitledPanel(preferences.getLocalizedString(
@@ -963,7 +1108,8 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
           1, 2, 1, 1, 0, 0, GridBagConstraints.LINE_START,
           GridBagConstraints.HORIZONTAL, rightComponentInsets, -15, 0));
     }
-    if (this.angleLabel != null) {
+    if (this.angleLabel != null
+        && !orientationPanelDisplayed) {
       locationPanel.add(this.angleLabel, new GridBagConstraints(
           0, 3, 1, 1, 0, 0, labelAlignment,
           GridBagConstraints.NONE, labelInsets, 0, 0));
@@ -977,9 +1123,85 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
           GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 0, 0));
     }
     if (locationPanel.getComponentCount() > 0) {
+      locationPanel.add(new JLabel(), new GridBagConstraints(
+          0, 100, 2, 1, 0, 1, GridBagConstraints.LINE_START, 
+          GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0));
       add(locationPanel, new GridBagConstraints(
-          0, 1, 1, 1, 1, 0, labelAlignment, GridBagConstraints.BOTH, new Insets(
+          0, 1, 1, 1, 1, 1, labelAlignment, GridBagConstraints.BOTH, new Insets(
           0, 0, rowGap, 0), 0, 0));
+    }
+    if (orientationPanelDisplayed) {
+      // Orientation panel 
+      JPanel orientationPanel = SwingTools.createTitledPanel(preferences.getLocalizedString(
+          HomeFurniturePanel.class, "orientationPanel.title"));      
+      JLabel verticalRotationLabel = new JLabel(preferences.getLocalizedString(
+          HomeFurniturePanel.class, "verticalRotationLabel.text"));
+      JLabel horizontalRotationLabel = new JLabel(preferences.getLocalizedString(
+          HomeFurniturePanel.class, "horizontalRotationLabel.text"));
+      JLabel orientationLabel = new JLabel(preferences.getLocalizedString(
+          HomeFurniturePanel.class, "orientationLabel.text"));
+      // There are two possible layout depending whether horizontal and vertical rotation label are defined or not
+      boolean layoutWithHorizontalVerticalLabels = verticalRotationLabel.getText().length() > 0 
+          && horizontalRotationLabel.getText().length() > 0;
+      if (this.angleLabel != null) {
+        // Row 0 may contain verticalRotationLabel
+        orientationPanel.add(this.angleLabel, new GridBagConstraints(
+            0, 1, 1, 1, 0, 0, GridBagConstraints.LINE_START, 
+            GridBagConstraints.NONE, new Insets(0, new JRadioButton().getPreferredSize().width, OperatingSystem.isMacOSX() || layoutWithHorizontalVerticalLabels ? 5 : 2, 5), 0, 0));
+        orientationPanel.add(this.angleSpinner, new GridBagConstraints(
+            1, 1, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+            GridBagConstraints.HORIZONTAL, rightComponentInsets, 10, 0));
+      }
+      Insets secondRadioButtonInsets = new Insets(0, 0, layoutWithHorizontalVerticalLabels ? 2 : (OperatingSystem.isMacOSX() ? 5 : 1), 5);
+      Insets secondSpinnerInsets = new Insets(0, 0, layoutWithHorizontalVerticalLabels ? 2 : 5, 0);
+      Insets thirdRadioButtonInsets = new Insets(0, 0, 0, 5);
+      Insets thirdSpinnerinsets = new Insets(0, 0, 0, 0);
+      if (this.pitchRadioButton != null) {
+        // Row 2 may contain horizontalRotationLabel
+        orientationPanel.add(this.pitchRadioButton, new GridBagConstraints(
+            0, layoutWithHorizontalVerticalLabels ? 3 : 4, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+            GridBagConstraints.NONE, layoutWithHorizontalVerticalLabels ? secondRadioButtonInsets : thirdRadioButtonInsets, 0, 0));
+        orientationPanel.add(this.pitchSpinner, new GridBagConstraints(
+            1, layoutWithHorizontalVerticalLabels ? 3 : 4, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+            GridBagConstraints.HORIZONTAL, layoutWithHorizontalVerticalLabels ? secondSpinnerInsets : thirdSpinnerinsets, 10, 0));
+      }
+      if (this.rollRadioButton != null) {
+        orientationPanel.add(this.rollRadioButton, new GridBagConstraints(
+            0, layoutWithHorizontalVerticalLabels ? 4 : 3, 1, 1, 0, 0, GridBagConstraints.LINE_START, 
+            GridBagConstraints.NONE, layoutWithHorizontalVerticalLabels ? thirdRadioButtonInsets : secondRadioButtonInsets, 0, 0));
+        orientationPanel.add(this.rollSpinner, new GridBagConstraints(
+            1, layoutWithHorizontalVerticalLabels ? 4 : 3, 1, 1, 0, 0, GridBagConstraints.LINE_START,
+            GridBagConstraints.HORIZONTAL, layoutWithHorizontalVerticalLabels ? thirdSpinnerinsets : secondSpinnerInsets, 10, 0));
+      }
+      if (this.rollRadioButton != null
+          && this.pitchRadioButton != null) { 
+        if (controller.isTexturable()) {
+          // Do not display orientation label information for not texturable furniture to keep a balanced dialog box 
+          orientationPanel.add(new JLabel(new ImageIcon(getClass().getResource("resources/furnitureOrientation.png"))), new GridBagConstraints(
+              0, 6, 2, 1, 1, layoutWithHorizontalVerticalLabels ? 1 : 0, GridBagConstraints.CENTER,
+              GridBagConstraints.BOTH, new Insets(10, 0, 5, 0), 0, 0));
+        }
+        if (layoutWithHorizontalVerticalLabels) {
+          // Add information labels about axes adjusting insets to align with components in other panels
+          orientationPanel.add(verticalRotationLabel, new GridBagConstraints(
+              0, 0, 2, 1, 0, 0, GridBagConstraints.LINE_START,
+              GridBagConstraints.NONE, new Insets(OperatingSystem.isMacOSX() ? 5 : 3, 0, OperatingSystem.isMacOSX() ? 10 : 8, 0), 0, 0));
+          orientationPanel.add(horizontalRotationLabel, new GridBagConstraints(
+              0, 2, 2, 1, 0, 0, GridBagConstraints.LINE_START,
+              GridBagConstraints.NONE, new Insets(OperatingSystem.isMacOSX() ? 5 : 3, 0, OperatingSystem.isMacOSX() ? 9 : 8, 0), 0, 0));
+        } else {
+          // Use same font for label as tooltips
+          orientationLabel.setFont(UIManager.getFont("ToolTip.font"));
+          orientationPanel.add(orientationLabel, new GridBagConstraints(
+              0, 7, 2, 1, 1, 1, GridBagConstraints.NORTH,
+              GridBagConstraints.NONE, new Insets(10, 0, 0, 0), 0, 0));
+        }
+      }
+      if (orientationPanel.getComponentCount() > 0) {
+        add(orientationPanel, new GridBagConstraints(
+            1, 1, 1, 2, 1, 0, labelAlignment, GridBagConstraints.BOTH, new Insets(
+            0, 0, rowGap, 0), 0, 0));
+      }
     }
     // Size panel
     JPanel sizePanel = SwingTools.createTitledPanel(preferences.getLocalizedString(
@@ -1010,8 +1232,8 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
     }
     if (this.keepProportionsCheckBox != null) {
       sizePanel.add(this.keepProportionsCheckBox, new GridBagConstraints(
-          0, 3, 2, 1, 0, 1, GridBagConstraints.LINE_START, 
-          GridBagConstraints.NONE, rightComponentInsets, 0, 0));
+          0, 3, 2, 1, 0, 0, GridBagConstraints.LINE_START, 
+          GridBagConstraints.NONE, new Insets(0, 0, OperatingSystem.isMacOSX() ? 5 : 2, 0), 0, 0));
     }
     if (this.mirroredModelCheckBox != null) {
       sizePanel.add(this.mirroredModelCheckBox, new GridBagConstraints(
@@ -1020,7 +1242,7 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
     }
     if (sizePanel.getComponentCount() > 0) {
       add(sizePanel, new GridBagConstraints(
-          1, 1, 2, 1, 1, 0, labelAlignment, 
+          orientationPanelDisplayed ? 2 : 1, 1, 2, 1, 1, 1, labelAlignment, 
           GridBagConstraints.BOTH, new Insets(0, 0, rowGap, 0), 0, 0));
     }
     final JPanel paintPanel = SwingTools.createTitledPanel(preferences.getLocalizedString(
@@ -1094,7 +1316,7 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
             GridBagConstraints.NONE, new Insets(5, 0, 0, 0), 0, 0));
       }
       add(shininessPanel, new GridBagConstraints(
-          1, 2, 2, 1, 0, 0, labelAlignment, 
+          orientationPanelDisplayed ? 2 : 1, 2, 2, 1, 0, 0, labelAlignment, 
           GridBagConstraints.BOTH, new Insets(0, 0, rowGap, 0), 0, 0));
       
       controller.addPropertyChangeListener(HomeFurnitureController.Property.TEXTURABLE, 
@@ -1113,10 +1335,10 @@ public class HomeFurniturePanel extends JPanel implements DialogView {
     }
     if (this.lightPowerLabel != null) {
       add(this.lightPowerLabel, new GridBagConstraints(
-          1, 3, 1, 1, 0, 0, labelAlignment, 
+          orientationPanelDisplayed ? 2 : 1, 3, 1, 1, 0, 0, labelAlignment, 
           GridBagConstraints.NONE, new Insets(0, 10, 0, 5), 0, 0));
       add(this.lightPowerSpinner, new GridBagConstraints(
-          2, 3, 1, 1, 0, 0, GridBagConstraints.LINE_START, 
+          orientationPanelDisplayed ? 3 : 2, 3, 1, 1, 0, 0, GridBagConstraints.LINE_START, 
           GridBagConstraints.NONE, new Insets(0, 0, 0, 5), 0, 0));
     }
   }

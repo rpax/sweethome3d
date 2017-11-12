@@ -76,6 +76,7 @@ import com.eteks.sweethome3d.model.DamagedHomeRecorderException;
 import com.eteks.sweethome3d.model.DimensionLine;
 import com.eteks.sweethome3d.model.Elevatable;
 import com.eteks.sweethome3d.model.FurnitureCatalog;
+import com.eteks.sweethome3d.model.FurnitureCategory;
 import com.eteks.sweethome3d.model.Home;
 import com.eteks.sweethome3d.model.HomeApplication;
 import com.eteks.sweethome3d.model.HomeDoorOrWindow;
@@ -117,6 +118,7 @@ public class HomeController implements Controller {
   private final UndoableEditSupport   undoSupport;
   private final UndoManager           undoManager;
   private HomeView                    homeView;
+  private List<Controller>            childControllers;
   private FurnitureCatalogController  furnitureCatalogController;
   private FurnitureController         furnitureController;
   private PlanController              planController;
@@ -193,6 +195,7 @@ public class HomeController implements Controller {
     this.viewFactory = viewFactory;
     this.contentManager = contentManager;
     this.application = application;
+    
     this.undoSupport = new UndoableEditSupport() {
         @Override
         protected void _postEdit(UndoableEdit edit) {
@@ -205,6 +208,7 @@ public class HomeController implements Controller {
       };
     this.undoManager = new UndoManager();
     this.undoSupport.addUndoableEditListener(this.undoManager);
+    this.childControllers = new ArrayList<Controller>();
     
     // Update recent homes list
     if (home.getName() != null) {
@@ -234,6 +238,7 @@ public class HomeController implements Controller {
     boolean applicationExists = this.application != null;
     
     homeView.setEnabled(HomeView.ActionType.NEW_HOME, applicationExists);
+    homeView.setEnabled(HomeView.ActionType.NEW_HOME_FROM_EXAMPLE, applicationExists);
     homeView.setEnabled(HomeView.ActionType.OPEN, applicationExists);
     homeView.setEnabled(HomeView.ActionType.DELETE_RECENT_HOMES, 
         applicationExists && !this.preferences.getRecentHomes().isEmpty());
@@ -253,6 +258,7 @@ public class HomeController implements Controller {
     homeView.setEnabled(HomeView.ActionType.IMPORT_TEXTURES_LIBRARY, true);
     homeView.setEnabled(HomeView.ActionType.SORT_HOME_FURNITURE_BY_CATALOG_ID, true);
     homeView.setEnabled(HomeView.ActionType.SORT_HOME_FURNITURE_BY_NAME, true);
+    homeView.setEnabled(HomeView.ActionType.SORT_HOME_FURNITURE_BY_CREATOR, true);
     homeView.setEnabled(HomeView.ActionType.SORT_HOME_FURNITURE_BY_WIDTH, true);
     homeView.setEnabled(HomeView.ActionType.SORT_HOME_FURNITURE_BY_HEIGHT, true);
     homeView.setEnabled(HomeView.ActionType.SORT_HOME_FURNITURE_BY_DEPTH, true);
@@ -261,6 +267,7 @@ public class HomeController implements Controller {
     homeView.setEnabled(HomeView.ActionType.SORT_HOME_FURNITURE_BY_ELEVATION, true);
     homeView.setEnabled(HomeView.ActionType.SORT_HOME_FURNITURE_BY_ANGLE, true);
     homeView.setEnabled(HomeView.ActionType.SORT_HOME_FURNITURE_BY_LEVEL, true);
+    homeView.setEnabled(HomeView.ActionType.SORT_HOME_FURNITURE_BY_MODEL_SIZE, true);
     homeView.setEnabled(HomeView.ActionType.SORT_HOME_FURNITURE_BY_COLOR, true);
     homeView.setEnabled(HomeView.ActionType.SORT_HOME_FURNITURE_BY_TEXTURE, true);
     homeView.setEnabled(HomeView.ActionType.SORT_HOME_FURNITURE_BY_MOVABILITY, true);
@@ -274,6 +281,7 @@ public class HomeController implements Controller {
         this.home.getFurnitureSortedProperty() != null);
     homeView.setEnabled(HomeView.ActionType.DISPLAY_HOME_FURNITURE_CATALOG_ID, true); 
     homeView.setEnabled(HomeView.ActionType.DISPLAY_HOME_FURNITURE_NAME, true); 
+    homeView.setEnabled(HomeView.ActionType.DISPLAY_HOME_FURNITURE_CREATOR, true); 
     homeView.setEnabled(HomeView.ActionType.DISPLAY_HOME_FURNITURE_WIDTH, true); 
     homeView.setEnabled(HomeView.ActionType.DISPLAY_HOME_FURNITURE_DEPTH, true); 
     homeView.setEnabled(HomeView.ActionType.DISPLAY_HOME_FURNITURE_HEIGHT, true); 
@@ -282,6 +290,7 @@ public class HomeController implements Controller {
     homeView.setEnabled(HomeView.ActionType.DISPLAY_HOME_FURNITURE_ELEVATION, true); 
     homeView.setEnabled(HomeView.ActionType.DISPLAY_HOME_FURNITURE_ANGLE, true); 
     homeView.setEnabled(HomeView.ActionType.DISPLAY_HOME_FURNITURE_LEVEL, true); 
+    homeView.setEnabled(HomeView.ActionType.DISPLAY_HOME_FURNITURE_MODEL_SIZE, true); 
     homeView.setEnabled(HomeView.ActionType.DISPLAY_HOME_FURNITURE_COLOR, true); 
     homeView.setEnabled(HomeView.ActionType.DISPLAY_HOME_FURNITURE_TEXTURE, true); 
     homeView.setEnabled(HomeView.ActionType.DISPLAY_HOME_FURNITURE_MOVABLE, true); 
@@ -375,6 +384,7 @@ public class HomeController implements Controller {
     if (this.furnitureCatalogController == null) {
       this.furnitureCatalogController = new FurnitureCatalogController(
           this.preferences.getFurnitureCatalog(), this.preferences, this.viewFactory, this.contentManager);
+      this.childControllers.add(this.furnitureCatalogController);
     }
     return this.furnitureCatalogController;
   }
@@ -387,6 +397,7 @@ public class HomeController implements Controller {
     if (this.furnitureController == null) {
       this.furnitureController = new FurnitureController(
           this.home, this.preferences, this.viewFactory, this.contentManager, getUndoableEditSupport());
+      this.childControllers.add(this.furnitureController);
     }
     return this.furnitureController;
   }
@@ -399,6 +410,7 @@ public class HomeController implements Controller {
     if (this.planController == null) {
       this.planController = new PlanController(
           this.home, this.preferences, this.viewFactory, this.contentManager, getUndoableEditSupport());
+      this.childControllers.add(this.planController);
     }
     return this.planController;
   }
@@ -411,6 +423,7 @@ public class HomeController implements Controller {
     if (this.homeController3D == null) {
       this.homeController3D = new HomeController3D(
           this.home, this.preferences, this.viewFactory, this.contentManager, getUndoableEditSupport());
+      this.childControllers.add(this.homeController3D);
     }
     return this.homeController3D;
   }
@@ -731,9 +744,10 @@ public class HomeController implements Controller {
         && selectedItems.get(0) instanceof HomeFurnitureGroup;
     boolean homeSelectionContainsFurnitureGroup = false;
     boolean homeSelectionContainsWalls = false;
+    boolean homeSelectionContainsOneWall = false;
+    boolean homeSelectionContainsOneOrTwoWallsWithOneFreeEnd = false;
     boolean homeSelectionContainsRooms = false;
     boolean homeSelectionContainsPolylines = false;
-    boolean homeSelectionContainsOneWall = false;
     boolean homeSelectionContainsOnlyOneRoom = false;
     boolean homeSelectionContainsOnlyOneRoomWithFourPointsOrMore = false;
     boolean homeSelectionContainsLabels = false;
@@ -792,6 +806,33 @@ public class HomeController implements Controller {
       List<Wall> selectedWalls = Home.getWallsSubList(selectedItems);
       homeSelectionContainsWalls = !selectedWalls.isEmpty();
       homeSelectionContainsOneWall = selectedWalls.size() == 1;
+      if (selectedWalls.size() >= 2) {
+        Wall [] wallsWithFreeEnd = {null, null, null};
+        for (Wall wall : selectedWalls) {
+          if ((wall.getArcExtent() == null
+                  || wall.getArcExtent() == 0f)
+              && (wall.getWallAtStart() == null
+                  || wall.getWallAtEnd() == null)) {
+            for (int i = 0; i < wallsWithFreeEnd.length; i++) {
+              if (wallsWithFreeEnd [i] == null) {
+                wallsWithFreeEnd [i] = wall;
+                break;
+              }
+            }
+            if (wallsWithFreeEnd [2] != null) {
+              break;
+            }
+          }
+        }
+        homeSelectionContainsOneOrTwoWallsWithOneFreeEnd = 
+            wallsWithFreeEnd [2] == null
+            && wallsWithFreeEnd [0] != null 
+            && (wallsWithFreeEnd [1] == null
+                  && !selectedWalls.contains(wallsWithFreeEnd [0].getWallAtStart())
+                  && !selectedWalls.contains(wallsWithFreeEnd [0].getWallAtEnd())
+               || wallsWithFreeEnd [0].getWallAtEnd() != wallsWithFreeEnd [1]
+                   && wallsWithFreeEnd [0].getWallAtStart() != wallsWithFreeEnd [1]);
+      }
       List<Room> selectedRooms = Home.getRoomsSubList(selectedItems);
       homeSelectionContainsRooms = !selectedRooms.isEmpty();
       homeSelectionContainsOnlyOneRoom = selectedItems.size() == 1 
@@ -866,6 +907,8 @@ public class HomeController implements Controller {
                  || this.focusedView == getHomeController3D().getView())));
     view.setEnabled(HomeView.ActionType.MODIFY_WALL,
         homeSelectionContainsWalls);
+    view.setEnabled(HomeView.ActionType.JOIN_WALLS, 
+        homeSelectionContainsOneOrTwoWallsWithOneFreeEnd);
     view.setEnabled(HomeView.ActionType.REVERSE_WALL_DIRECTION,
         homeSelectionContainsWalls);
     view.setEnabled(HomeView.ActionType.SPLIT_WALL,
@@ -1523,11 +1566,14 @@ public class HomeController implements Controller {
       for (HomePieceOfFurniture piece : furniture) {
         if (piece.isResizable()) {
           piece.setWidth(this.preferences.getLengthUnit().getMagnetizedLength(piece.getWidth(), 0.1f));
+          piece.setWidthInPlan(piece.getWidth());
           // Don't adjust depth of doors or windows otherwise they may be misplaced in a wall 
           if (!(piece instanceof HomeDoorOrWindow) || !keepDoorsAndWindowDepth) {
             piece.setDepth(this.preferences.getLengthUnit().getMagnetizedLength(piece.getDepth(), 0.1f));
+            piece.setDepthInPlan(piece.getDepth());
           }
           piece.setHeight(this.preferences.getLengthUnit().getMagnetizedLength(piece.getHeight(), 0.1f));
+          piece.setHeightInPlan(piece.getHeight());
         }
         piece.setElevation(this.preferences.getLengthUnit().getMagnetizedLength(piece.getElevation(), 0.1f));
       }
@@ -1741,6 +1787,22 @@ public class HomeController implements Controller {
   }
   
   /**
+   * Returns the transfer data matching the requested types.
+   */
+   public void createTransferData(final TransferableView.TransferObserver observer, 
+                                  final TransferableView.DataType ... dataTypes) {
+     final List<Object> data = new ArrayList<Object>();
+     for (int i = 0; i < dataTypes.length; i++) {
+       for (Controller childController : childControllers) {
+         if (childController.getView() instanceof TransferableView) {
+           data.add(((TransferableView)childController.getView()).createTransferData(dataTypes [i]));
+         }
+       }
+     }
+     observer.dataReady(data.toArray());
+   }
+
+  /**
    * Deletes the selection in the focused component.
    */
   public void delete() {
@@ -1791,7 +1853,81 @@ public class HomeController implements Controller {
     }
     this.application.addHome(home);
   }
+  
+  /**
+   * Creates a new home from an example chosen by the user.
+   */
+  public void newHomeFromExample() {
+    final String exampleName = getView().showNewHomeFromExampleDialog();
+    if (exampleName != null) {
+      // Read home in a threaded task
+      Callable<Void> openTask = new Callable<Void>() {
+            public Void call() throws RecorderException {
+              // Read home with application recorder
+              Home openedHome = application.getHomeRecorder().readHome(exampleName);
+              // Reset furniture names to their catalog one to simulate translation
+              final Map<String, String> furnitureNames = getCatalogFurnitureNames(preferences.getFurnitureCatalog());
+              String groupName = preferences.getLocalizedString(HomeController.class, "defaultGroupName");
+              for (HomePieceOfFurniture piece : openedHome.getFurniture()) {
+                renameToCatalogName(piece, furnitureNames, groupName);
+              }
+              openedHome.setName(null);
+              addHomeToApplication(openedHome);
+              return null;
+            }
+          };
+      ThreadedTaskController.ExceptionHandler exceptionHandler = 
+          new ThreadedTaskController.ExceptionHandler() {
+            public void handleException(Exception ex) {
+              if (!(ex instanceof InterruptedRecorderException)) {
+                ex.printStackTrace();
+                if (ex instanceof RecorderException) {
+                  String message = preferences.getLocalizedString(HomeController.class, "openError", exampleName);
+                  getView().showError(message);
+                } 
+              }
+            }
+          };
+      new ThreadedTaskController(openTask, 
+          this.preferences.getLocalizedString(HomeController.class, "openMessage"), exceptionHandler, 
+          this.preferences, this.viewFactory).executeTask(getView());
+    }
+  }
 
+  /**
+   * Returns a map with entries containing furniture name associated to their id.
+   */
+  private Map<String, String> getCatalogFurnitureNames(FurnitureCatalog catalog) {
+    Map<String, String> furnitureNames = new HashMap<String, String>();
+    for (FurnitureCategory category : catalog.getCategories()) {
+      for (CatalogPieceOfFurniture piece : category.getFurniture()) {
+        if (piece.getId() != null) {
+          furnitureNames.put(piece.getId(), piece.getName());
+        }
+      }
+    }
+    return furnitureNames;
+  }
+ 
+  /**
+   * Renames the given <code>piece</code> from the piece name with the same id in <code>furnitureNames</code>. 
+   */
+  private void renameToCatalogName(HomePieceOfFurniture piece, 
+                                   Map<String, String> furnitureNames,
+                                   String groupName) {
+    if (piece instanceof HomeFurnitureGroup) {
+      piece.setName(groupName);
+      for (HomePieceOfFurniture groupPiece : ((HomeFurnitureGroup)piece).getFurniture()) {
+        renameToCatalogName(groupPiece, furnitureNames, groupName);
+      }
+    } else { 
+      String id = piece.getCatalogId();
+      if (id != null) {
+        piece.setName(furnitureNames.get(id));
+      }
+    }
+  }
+  
   /**
    * Opens a home. This method displays an {@link HomeView#showOpenDialog() open dialog} 
    * in view, reads the home from the chosen name and adds it to application home list.
@@ -1998,11 +2134,12 @@ public class HomeController implements Controller {
       HomePieceOfFurniture piece = furniture.get(i);
       if (referencesInvalidContent(piece, invalidContent)) {
         HomePieceOfFurniture replacingPiece = getFurnitureController().createHomePieceOfFurniture(
-            new CatalogPieceOfFurniture(piece.getCatalogId(), piece.getName(), piece.getDescription(), 
+            new CatalogPieceOfFurniture(piece.getCatalogId(), piece.getName(), piece.getDescription(),
+                piece.getInformation(), new String [0], null, null,
                 REPAIRED_ICON_CONTENT, REPAIRED_IMAGE_CONTENT, REPAIRED_MODEL_CONTENT, 
-                piece.getWidth(), piece.getDepth(), piece.getHeight(), piece.getElevation(), 
-                piece.isMovable(), piece.getStaircaseCutOutShape(), null, piece.getCreator(), 
-                piece.isResizable(), piece.isDeformable(), piece.isTexturable(), 
+                piece.getWidth(), piece.getDepth(), piece.getHeight(), piece.getElevation(), 1f,
+                piece.isMovable(), piece.getStaircaseCutOutShape(), null, false, null, piece.getCreator(), 
+                piece.isResizable(), piece.isDeformable(), piece.isTexturable(), piece.isHorizontallyRotatable(),
                 piece.getPrice(), piece.getValueAddedTaxPercentage(), piece.getCurrency()));
         replacingPiece.setNameVisible(piece.isNameVisible());
         replacingPiece.setNameXOffset(piece.getNameXOffset());
@@ -2013,6 +2150,8 @@ public class HomeController implements Controller {
         replacingPiece.setX(piece.getX());
         replacingPiece.setY(piece.getY());
         home.addPieceOfFurniture(replacingPiece, i);
+        replacingPiece.setPitch(piece.getPitch());
+        replacingPiece.setRoll(piece.getRoll());
         replacingPiece.setLevel(piece.getLevel());
         home.deletePieceOfFurniture(piece);
       } else {      

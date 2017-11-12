@@ -178,7 +178,7 @@ public class SweetHome3D extends HomeApplication {
   public HomeRecorder getHomeRecorder() {
     // Initialize homeRecorder lazily
     if (this.homeRecorder == null) {
-      this.homeRecorder = new HomeFileRecorder(0, false, getUserPreferences(), false, true);
+      this.homeRecorder = new HomeFileRecorder(0, false, getUserPreferences(), false, true, true);
     }
     return this.homeRecorder;
   }
@@ -188,7 +188,7 @@ public class SweetHome3D extends HomeApplication {
     if (type == HomeRecorder.Type.COMPRESSED) {
       // Initialize compressedHomeRecorder lazily
       if (this.compressedHomeRecorder == null) {
-        this.compressedHomeRecorder = new HomeFileRecorder(9, false, getUserPreferences(), false, true);
+        this.compressedHomeRecorder = new HomeFileRecorder(9, false, getUserPreferences(), false, true, true);
       }
       return this.compressedHomeRecorder;
     } else {
@@ -445,7 +445,10 @@ public class SweetHome3D extends HomeApplication {
             homeFrameControllers.remove(ev.getItem());
 
             // If application has no more home
-            if (getHomes().isEmpty() && !OperatingSystem.isMacOSX()) {
+            if (getHomes().isEmpty() 
+                && (!OperatingSystem.isMacOSX()
+                    || !Boolean.getBoolean("apple.laf.useScreenMenuBar")
+                    || OperatingSystem.isJavaVersionGreaterOrEqual("1.9"))) {
               // If SingleInstanceService is available, remove the listener that was added on it
               if (singleInstanceService != null) {
                 singleInstanceService.removeSingleInstanceListener(singleInstanceListener);
@@ -514,8 +517,13 @@ public class SweetHome3D extends HomeApplication {
       String applicationName = resource.getString("SweetHome3D.applicationName");
       System.setProperty("com.apple.mrj.application.apple.menu.about.name", applicationName);
       System.setProperty("apple.awt.application.name", applicationName);
-      // Use Mac OS X screen menu bar for frames menu bar
-      System.setProperty("apple.laf.useScreenMenuBar", "true");
+      if (System.getProperty("apple.laf.useScreenMenuBar") == null) {
+        // Use Mac OS X screen menu bar for frames menu bar
+        // except for bundles under macOS 10.13
+        System.setProperty("apple.laf.useScreenMenuBar", 
+            String.valueOf(OperatingSystem.compareVersions(System.getProperty("os.version"), "10.13") < 0
+                || MacOSXConfiguration.isScreenMenuBarSupported()));
+      }
       // Force the use of Quartz under Mac OS X for better Java 2D rendering performance
       System.setProperty("apple.awt.graphics.UseQuartz", "true");
       if (System.getProperty("com.eteks.sweethome3d.dragAndDropWithoutTransferHandler") == null
@@ -570,7 +578,7 @@ public class SweetHome3D extends HomeApplication {
               return new Insets(0, 0, 0, 0);
             }
           });
-      }
+      } 
       SwingTools.updateSwingResourceLanguage(getUserPreferences());
     } catch (Exception ex) {
       // Too bad keep current look and feel

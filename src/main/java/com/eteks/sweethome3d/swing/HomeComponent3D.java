@@ -94,10 +94,14 @@ import javax.media.j3d.IllegalRenderingStateException;
 import javax.media.j3d.J3DGraphics2D;
 import javax.media.j3d.Light;
 import javax.media.j3d.Link;
+import javax.media.j3d.Material;
 import javax.media.j3d.Node;
 import javax.media.j3d.PointArray;
+import javax.media.j3d.RenderingAttributes;
 import javax.media.j3d.Shape3D;
+import javax.media.j3d.TexCoordGeneration;
 import javax.media.j3d.Texture;
+import javax.media.j3d.TextureAttributes;
 import javax.media.j3d.Transform3D;
 import javax.media.j3d.TransformGroup;
 import javax.media.j3d.TransformInterpolator;
@@ -127,6 +131,7 @@ import javax.vecmath.Point3d;
 import javax.vecmath.Point3f;
 import javax.vecmath.TexCoord2f;
 import javax.vecmath.Vector3f;
+import javax.vecmath.Vector4f;
 
 import com.eteks.sweethome3d.j3d.Component3DManager;
 import com.eteks.sweethome3d.j3d.Ground3D;
@@ -178,7 +183,7 @@ public class HomeComponent3D extends JComponent implements com.eteks.sweethome3d
   private final boolean                            displayShadowOnFloor;
   private final Object3DFactory                    object3dFactory;
   private final Map<Selectable, Object3DBranch>    homeObjects = new HashMap<Selectable, Object3DBranch>();
-  private Light []                                 defaultLights;
+  private Light []                                 sceneLights;
   private Collection<Selectable>                   homeObjectsToUpdate;
   private Collection<Selectable>                   lightScopeObjectsToUpdate;
   private Component                                component3D;
@@ -187,10 +192,12 @@ public class HomeComponent3D extends JComponent implements com.eteks.sweethome3d
   // Listeners bound to home that updates 3D scene objects
   private PropertyChangeListener                   cameraChangeListener;
   private PropertyChangeListener                   homeCameraListener;
-  private PropertyChangeListener                   skyColorListener;
+  private PropertyChangeListener                   backgroundChangeListener;
   private PropertyChangeListener                   groundChangeListener;
+  private PropertyChangeListener                   backgroundLightColorListener;
   private PropertyChangeListener                   lightColorListener;
   private PropertyChangeListener                   subpartSizeListener;
+  private PropertyChangeListener                   elevationChangeListener;
   private PropertyChangeListener                   wallsAlphaListener;
   private PropertyChangeListener                   drawingModeListener;
   private CollectionListener<Level>                levelListener;
@@ -788,7 +795,7 @@ public class HomeComponent3D extends JComponent implements com.eteks.sweethome3d
     view.setTransparencySortingPolicy(View.TRANSPARENCY_SORT_GEOMETRY);
     
     // Update field of view from current camera
-    updateView(view, this.home.getCamera(), this.home.getTopCamera() == this.home.getCamera());
+    updateView(view, this.home.getCamera());
     
     // Update point of view from current camera
     updateViewPlatformTransform(viewPlatformTransform, this.home.getCamera(), false);
@@ -811,15 +818,20 @@ public class HomeComponent3D extends JComponent implements com.eteks.sweethome3d
   private void removeHomeListeners() {
     this.home.removePropertyChangeListener(Home.Property.CAMERA, this.homeCameraListener);
     HomeEnvironment homeEnvironment = this.home.getEnvironment();
-    homeEnvironment.removePropertyChangeListener(HomeEnvironment.Property.SKY_COLOR, this.skyColorListener);
-    homeEnvironment.removePropertyChangeListener(HomeEnvironment.Property.SKY_TEXTURE, this.skyColorListener);
+    homeEnvironment.removePropertyChangeListener(HomeEnvironment.Property.SKY_COLOR, this.backgroundChangeListener);
+    homeEnvironment.removePropertyChangeListener(HomeEnvironment.Property.SKY_TEXTURE, this.backgroundChangeListener);
+    homeEnvironment.removePropertyChangeListener(HomeEnvironment.Property.GROUND_COLOR, this.backgroundChangeListener);
+    homeEnvironment.removePropertyChangeListener(HomeEnvironment.Property.GROUND_TEXTURE, this.backgroundChangeListener);
     homeEnvironment.removePropertyChangeListener(HomeEnvironment.Property.GROUND_COLOR, this.groundChangeListener);
     homeEnvironment.removePropertyChangeListener(HomeEnvironment.Property.GROUND_TEXTURE, this.groundChangeListener);
+    homeEnvironment.removePropertyChangeListener(HomeEnvironment.Property.LIGHT_COLOR, this.backgroundLightColorListener);
     homeEnvironment.removePropertyChangeListener(HomeEnvironment.Property.LIGHT_COLOR, this.lightColorListener);
     homeEnvironment.removePropertyChangeListener(HomeEnvironment.Property.WALLS_ALPHA, this.wallsAlphaListener);
     homeEnvironment.removePropertyChangeListener(HomeEnvironment.Property.DRAWING_MODE, this.drawingModeListener);
     homeEnvironment.removePropertyChangeListener(HomeEnvironment.Property.SUBPART_SIZE_UNDER_LIGHT, this.subpartSizeListener);
     this.home.getCamera().removePropertyChangeListener(this.cameraChangeListener);
+    this.home.removePropertyChangeListener(Home.Property.CAMERA, this.elevationChangeListener);
+    this.home.getCamera().removePropertyChangeListener(this.elevationChangeListener);
     this.home.removeLevelsListener(this.levelListener);
     for (Level level : this.home.getLevels()) {
       level.removePropertyChangeListener(this.levelChangeListener);
@@ -922,6 +934,8 @@ public class HomeComponent3D extends JComponent implements com.eteks.sweethome3d
         view = this.offscreenUniverse.getViewer().getView();
       }
       
+      updateView(view, this.home.getCamera(), width, height);
+      
       // Empty temporarily selection to create the off screen image
       List<Selectable> emptySelection = Collections.emptyList();
       this.home.setSelectedItems(emptySelection);
@@ -984,7 +998,7 @@ public class HomeComponent3D extends JComponent implements com.eteks.sweethome3d
           // Update view transform later to avoid flickering in case of multiple camera changes 
           EventQueue.invokeLater(new Runnable() {
             public void run() {
-              updateView(view, home.getCamera(), home.getTopCamera() == home.getCamera());
+              updateView(view, home.getCamera());
               updateViewPlatformTransform(viewPlatformTransform, home.getCamera(), true);
             }
           });
@@ -993,7 +1007,7 @@ public class HomeComponent3D extends JComponent implements com.eteks.sweethome3d
     this.home.getCamera().addPropertyChangeListener(this.cameraChangeListener);
     this.homeCameraListener = new PropertyChangeListener() {
         public void propertyChange(PropertyChangeEvent ev) {
-          updateView(view, home.getCamera(), home.getTopCamera() == home.getCamera());
+          updateView(view, home.getCamera());
           updateViewPlatformTransform(viewPlatformTransform, home.getCamera(), false);
           // Add camera change listener to new active camera
           ((Camera)ev.getOldValue()).removePropertyChangeListener(cameraChangeListener);
@@ -1006,86 +1020,72 @@ public class HomeComponent3D extends JComponent implements com.eteks.sweethome3d
   /**
    * Updates <code>view</code> from <code>camera</code> field of view.
    */
-  private void updateView(View view, Camera camera, boolean topCamera) {
+  private void updateView(View view, Camera camera) {
+    if (this.component3D != null) {
+      updateView(view, camera, this.component3D.getWidth(), this.component3D.getHeight());
+    } else {
+      updateView(view, camera, 0, 0);
+    }
+  }
+  
+  private void updateView(View view, Camera camera, int width, int height) {
     float fieldOfView = camera.getFieldOfView();
     if (fieldOfView == 0) {
       fieldOfView = (float)(Math.PI * 63 / 180);
     }
     view.setFieldOfView(fieldOfView);
-    double frontClipDistance;
-    double backClipDistance;
-    if (topCamera) {
-      BoundingBox approximateHomeBounds = getApproximateHomeBoundsCache();
-      if (approximateHomeBounds == null) {
-        frontClipDistance = 5;
-      } else {
-        Point3d lower = new Point3d();
-        approximateHomeBounds.getLower(lower);
-        Point3d upper = new Point3d();
-        approximateHomeBounds.getUpper(upper);
-        // Use a variable front clip distance for top camera depending on the distance to home objects center
-        frontClipDistance = 1 + Math.sqrt(Math.pow((lower.x + upper.x) / 2 - camera.getX(), 2) 
-            + Math.pow((lower.y + upper.y) / 2 - camera.getY(), 2) 
-            + Math.pow((lower.z + upper.z) / 2 - camera.getZ(), 2)) / 100;
+    double frontClipDistance = 2.5f;
+    // It's recommended to keep ratio between back and front clip distances under 3000
+    final float frontBackDistanceRatio = 3000;
+    BoundingBox approximateHomeBounds = getApproximateHomeBounds();
+    // If camera is out of home bounds, adjust the front clip distance to the distance to home bounds 
+    if (approximateHomeBounds != null
+        && !approximateHomeBounds.intersect(new Point3d(camera.getX(), camera.getY(), camera.getZ()))) {
+      float distanceToClosestBoxSide = getDistanceToBox(camera.getX(), camera.getY(), camera.getZ(), approximateHomeBounds);
+      if (!Float.isNaN(distanceToClosestBoxSide)) {
+        frontClipDistance = Math.max(frontClipDistance, 0.1f * distanceToClosestBoxSide);
       }
-      // It's recommended to keep ratio between back and front clip distances under 3000
-      backClipDistance = frontClipDistance * 3000;
-    } else {
-      // Use a variable front clip distance for observer camera depending on the elevation 
-      // Caution: check that a white zone doesn't appear at the horizon in off screen images
-      // when camera is at an intermediate elevation
-      
-      // Under 125 cm keep a front clip distance equal to 2.5 cm 
-      frontClipDistance = 2.5;
-      backClipDistance = frontClipDistance * 5000;
-      final float minElevation = 125;
-      if (camera.getZ() > minElevation) {
-        final float intermediateGrowFactor = 1 / 250f;
-        BoundingBox approximateHomeBounds = getApproximateHomeBoundsCache();
-        float highestPoint = 0; 
-        if (approximateHomeBounds != null) {
-          Point3d upper = new Point3d();
-          approximateHomeBounds.getUpper(upper);
-          highestPoint = Math.min((float)upper.z, 10000f);
-        }
-        if (camera.getZ() < highestPoint + minElevation) {
-          // Between 200 cm and the highest point, make front clip distance grow slowly and increase front/back ratio  
-          frontClipDistance += (camera.getZ() - minElevation) * intermediateGrowFactor;
-          backClipDistance  += (frontClipDistance - 2.5) * 25000;
-        } else {
-          // Above, make front clip distance grow faster
-          frontClipDistance += 
-              highestPoint * intermediateGrowFactor 
-            + (camera.getZ() - highestPoint - minElevation) / 50;
-          backClipDistance  += 
-              + (highestPoint * intermediateGrowFactor) * 25000
-              + (frontClipDistance - highestPoint * intermediateGrowFactor - 2.5) * 5000;
+    }
+    if (camera.getZ() > 0 && width != 0 && height != 0) {
+      float halfVerticalFieldOfView = (float)Math.atan(Math.tan(fieldOfView / 2) * height / width);
+      float fieldOfViewBottomAngle = camera.getPitch() + halfVerticalFieldOfView;
+      // If the horizon is above the frustrum bottom, take into account the distance to the ground 
+      if (fieldOfViewBottomAngle > 0) {
+        float distanceToGroundAtFieldOfViewBottomAngle = (float)(camera.getZ() / Math.sin(fieldOfViewBottomAngle));
+        frontClipDistance = Math.min(frontClipDistance, 0.35f * distanceToGroundAtFieldOfViewBottomAngle);
+        if (frontClipDistance * frontBackDistanceRatio < distanceToGroundAtFieldOfViewBottomAngle) {
+          // Ensure the ground is always visible at the back clip distance
+          frontClipDistance = distanceToGroundAtFieldOfViewBottomAngle / frontBackDistanceRatio;
         }
       }
     }
-    
     // Update front and back clip distance 
     view.setFrontClipDistance(frontClipDistance);
-    view.setBackClipDistance(backClipDistance);
+    view.setBackClipDistance(frontClipDistance * frontBackDistanceRatio);
     clearPrintedImageCache();
   }
 
   /**
    * Returns quickly computed bounds of the objects in home.
    */
-  private BoundingBox getApproximateHomeBoundsCache() {
+  private BoundingBox getApproximateHomeBounds() {
     if (this.approximateHomeBoundsCache == null) {
       BoundingBox approximateHomeBounds = null;
       for (HomePieceOfFurniture piece : this.home.getFurniture()) {
         if (piece.isVisible()
             && (piece.getLevel() == null
                 || piece.getLevel().isViewable())) {
-          Point3d pieceLocation = new Point3d(piece.getX(), piece.getY(), piece.getGroundElevation());
+          float halfMaxDimension = Math.max(piece.getWidthInPlan(), piece.getDepthInPlan()) / 2;
+          float elevation = piece.getGroundElevation();
+          Point3d pieceLocation = new Point3d(
+              piece.getX() - halfMaxDimension, piece.getY() - halfMaxDimension, elevation);
           if (approximateHomeBounds == null) {
             approximateHomeBounds = new BoundingBox(pieceLocation, pieceLocation);
           } else {
             approximateHomeBounds.combine(pieceLocation);
           }
+          approximateHomeBounds.combine(new Point3d(
+              piece.getX() + halfMaxDimension, piece.getY() + halfMaxDimension, elevation + piece.getHeightInPlan()));
         }
       }
       for (Wall wall : this.home.getWalls()) {
@@ -1129,6 +1129,145 @@ public class HomeComponent3D extends JComponent implements com.eteks.sweethome3d
       this.approximateHomeBoundsCache = approximateHomeBounds;
     }
     return this.approximateHomeBoundsCache;
+  }
+  
+  /**
+   * Returns the distance between the point at the given coordinates (x,y,z) and the closest side of <code>box</code>.
+   */
+  private float getDistanceToBox(float x, float y, float z, BoundingBox box) {
+    Point3f point = new Point3f(x, y, z);
+    Point3d lower = new Point3d();
+    box.getLower(lower);
+    Point3d upper = new Point3d();
+    box.getUpper(upper);
+    Point3f [] boxVertices = {
+      new Point3f((float)lower.x, (float)lower.y, (float)lower.z),
+      new Point3f((float)upper.x, (float)lower.y, (float)lower.z),
+      new Point3f((float)lower.x, (float)upper.y, (float)lower.z),
+      new Point3f((float)upper.x, (float)upper.y, (float)lower.z),
+      new Point3f((float)lower.x, (float)lower.y, (float)upper.z),
+      new Point3f((float)upper.x, (float)lower.y, (float)upper.z),
+      new Point3f((float)lower.x, (float)upper.y, (float)upper.z),
+      new Point3f((float)upper.x, (float)upper.y, (float)upper.z)};
+    float [] distancesToVertex = new float [boxVertices.length];
+    for (int i = 0; i < distancesToVertex.length; i++) {
+      distancesToVertex [i] = point.distanceSquared(boxVertices [i]); 
+    }
+    float [] distancesToSide = {
+        getDistanceToSide(point, boxVertices, distancesToVertex, 0, 1, 3, 2, 2),
+        getDistanceToSide(point, boxVertices, distancesToVertex, 0, 1, 5, 4, 1),
+        getDistanceToSide(point, boxVertices, distancesToVertex, 0, 2, 6, 4, 0),
+        getDistanceToSide(point, boxVertices, distancesToVertex, 4, 5, 7, 6, 2),
+        getDistanceToSide(point, boxVertices, distancesToVertex, 2, 3, 7, 6, 1),
+        getDistanceToSide(point, boxVertices, distancesToVertex, 1, 3, 7, 5, 0)};
+    float distance = distancesToSide [0];
+    for (int i = 1; i < distancesToSide.length; i++) {
+      distance = Math.min(distance, distancesToSide [i]);
+    }
+    return distance;
+  }
+
+  /**
+   * Returns the distance between the given <code>point</code> and the plane defined by four vertices.
+   */
+  private float getDistanceToSide(Point3f point, Point3f [] boxVertices, float [] distancesSquaredToVertex, 
+                                  int index1, int index2, int index3, int index4, int axis) {
+    switch (axis) {
+      case 0 : // Normal along x axis
+        if (point.y <= boxVertices [index1].y) {
+          if (point.z <= boxVertices [index1].z) {
+            return (float)Math.sqrt(distancesSquaredToVertex [index1]);
+          } else if (point.z >= boxVertices [index4].z) {
+            return (float)Math.sqrt(distancesSquaredToVertex [index4]);
+          } else {
+            return getDistanceToLine(point, boxVertices [index1], boxVertices [index4]);
+          }
+        } else if (point.y >= boxVertices [index2].y) {
+          if (point.z <= boxVertices [index2].z) {
+            return (float)Math.sqrt(distancesSquaredToVertex [index2]);
+          } else if (point.z >= boxVertices [index3].z) {
+            return (float)Math.sqrt(distancesSquaredToVertex [index3]);
+          } else {
+            return getDistanceToLine(point, boxVertices [index2], boxVertices [index3]);
+          }
+        } else if (point.z <= boxVertices [index1].z) {
+          return getDistanceToLine(point, boxVertices [index1], boxVertices [index2]);
+        } else if (point.z >= boxVertices [index4].z) {
+          return getDistanceToLine(point, boxVertices [index3], boxVertices [index4]);
+        } 
+        break;
+      case 1 : // Normal along y axis
+        if (point.x <= boxVertices [index1].x) {
+          if (point.z <= boxVertices [index1].z) {
+            return (float)Math.sqrt(distancesSquaredToVertex [index1]);
+          } else if (point.z >= boxVertices [index4].z) {
+            return (float)Math.sqrt(distancesSquaredToVertex [index4]);
+          } else {
+            return getDistanceToLine(point, boxVertices [index1], boxVertices [index4]);
+          }
+        } else if (point.x >= boxVertices [index2].x) {
+          if (point.z <= boxVertices [index2].z) {
+            return (float)Math.sqrt(distancesSquaredToVertex [index2]);
+          } else if (point.z >= boxVertices [index3].z) {
+            return (float)Math.sqrt(distancesSquaredToVertex [index3]);
+          } else {
+            return getDistanceToLine(point, boxVertices [index2], boxVertices [index3]);
+          }
+        } else if (point.z <= boxVertices [index1].z) {
+          return getDistanceToLine(point, boxVertices [index1], boxVertices [index2]);
+        } else if (point.z >= boxVertices [index4].z) {
+          return getDistanceToLine(point, boxVertices [index3], boxVertices [index4]);
+        } 
+        break;
+      case 2 : // Normal along z axis
+        if (point.x <= boxVertices [index1].x) {
+          if (point.y <= boxVertices [index1].y) {
+            return (float)Math.sqrt(distancesSquaredToVertex [index1]);
+          } else if (point.y >= boxVertices [index4].y) {
+            return (float)Math.sqrt(distancesSquaredToVertex [index4]);
+          } else {
+            return getDistanceToLine(point, boxVertices [index1], boxVertices [index4]);
+          }
+        } else if (point.x >= boxVertices [index2].x) {
+          if (point.y <= boxVertices [index2].y) {
+            return (float)Math.sqrt(distancesSquaredToVertex [index2]);
+          } else if (point.y >= boxVertices [index3].y) {
+            return (float)Math.sqrt(distancesSquaredToVertex [index3]);
+          } else {
+            return getDistanceToLine(point, boxVertices [index2], boxVertices [index3]);
+          }
+        } else if (point.y <= boxVertices [index1].y) {
+          return getDistanceToLine(point, boxVertices [index1], boxVertices [index2]);
+        } else if (point.y >= boxVertices [index4].y) {
+          return getDistanceToLine(point, boxVertices [index3], boxVertices [index4]);
+        } 
+        break;
+    }
+
+    // Return distance to plane 
+    // from https://fr.wikipedia.org/wiki/Distance_d%27un_point_à_un_plan 
+    Vector3f vector1 = new Vector3f(boxVertices [index2].x - boxVertices [index1].x,
+        boxVertices [index2].y - boxVertices [index1].y, 
+        boxVertices [index2].z - boxVertices [index1].z);
+    Vector3f vector2 = new Vector3f(boxVertices [index3].x - boxVertices [index1].x, 
+        boxVertices [index3].y - boxVertices [index1].y, 
+        boxVertices [index3].z - boxVertices [index1].z);
+    Vector3f normal = new Vector3f();
+    normal.cross(vector1, vector2);
+    return Math.abs(normal.dot(new Vector3f(boxVertices [index1].x - point.x, boxVertices [index1].y - point.y, boxVertices [index1].z - point.z))) /
+        normal.length();
+  }
+
+  /**
+   * Returns the distance between the given <code>point</code> and the line defined by two points.
+   */
+  private float getDistanceToLine(Point3f point, Point3f point1, Point3f point2) {
+    // From https://fr.wikipedia.org/wiki/Distance_d%27un_point_à_une_droite#Dans_l.27espace
+    Vector3f lineDirection = new Vector3f(point2.x - point1.x, point2.y - point1.y, point2.z - point1.z);
+    Vector3f vector = new Vector3f(point.x - point1.x, point.y - point1.y, point.z - point1.z);
+    Vector3f crossProduct = new Vector3f();
+    crossProduct.cross(lineDirection, vector);
+    return crossProduct.length() / lineDirection.length();
   }
 
   /**
@@ -1587,12 +1726,13 @@ public class HomeComponent3D extends JComponent implements com.eteks.sweethome3d
     BranchGroup root = new BranchGroup();
     // Build scene tree
     root.addChild(createHomeTree(displayShadowOnFloor, listenToHomeUpdates, waitForLoading));
-    root.addChild(createBackgroundNode(listenToHomeUpdates, waitForLoading));
+    Node backgroundNode = createBackgroundNode(listenToHomeUpdates, waitForLoading);
+    root.addChild(backgroundNode);
     Node groundNode = createGroundNode(-0.5E7f, -0.5E7f, 1E7f, 1E7f, listenToHomeUpdates, waitForLoading);
     root.addChild(groundNode);
 
-    this.defaultLights = createLights(groundNode, listenToHomeUpdates);
-    for (Light light : this.defaultLights) {
+    this.sceneLights = createLights(groundNode, listenToHomeUpdates);
+    for (Light light : this.sceneLights) {
       root.addChild(light);
     }
     
@@ -1603,37 +1743,102 @@ public class HomeComponent3D extends JComponent implements com.eteks.sweethome3d
    * Returns a new background node.  
    */
   private Node createBackgroundNode(boolean listenToHomeUpdates, final boolean waitForLoading) {
-    final Appearance backgroundAppearance = new Appearance();
-    ColoringAttributes backgroundColoringAttributes = new ColoringAttributes();
-    backgroundAppearance.setColoringAttributes(backgroundColoringAttributes);
-    // Allow background color and texture to change
-    backgroundAppearance.setCapability(Appearance.ALLOW_TEXTURE_WRITE);
-    backgroundAppearance.setCapability(Appearance.ALLOW_COLORING_ATTRIBUTES_READ);
-    backgroundColoringAttributes.setCapability(ColoringAttributes.ALLOW_COLOR_WRITE);
+    final Appearance skyBackgroundAppearance = new Appearance();
+    ColoringAttributes skyBackgroundColoringAttributes = new ColoringAttributes();
+    skyBackgroundAppearance.setColoringAttributes(skyBackgroundColoringAttributes);
+    // Allow sky color and texture to change
+    skyBackgroundAppearance.setCapability(Appearance.ALLOW_TEXTURE_WRITE);
+    skyBackgroundAppearance.setCapability(Appearance.ALLOW_COLORING_ATTRIBUTES_READ);
+    skyBackgroundColoringAttributes.setCapability(ColoringAttributes.ALLOW_COLOR_WRITE);
     
-    Geometry halfSphereGeometry = createHalfSphereGeometry(true);   
-    final Shape3D halfSphere = new Shape3D(halfSphereGeometry, backgroundAppearance);
+    Geometry topHalfSphereGeometry = createHalfSphereGeometry(true);   
+    final Shape3D topHalfSphere = new Shape3D(topHalfSphereGeometry, skyBackgroundAppearance);
     BranchGroup backgroundBranch = new BranchGroup();
-    backgroundBranch.addChild(halfSphere);
-    backgroundBranch.addChild(new Shape3D(createHalfSphereGeometry(false)));
+    backgroundBranch.addChild(topHalfSphere);
+    
+    final Appearance bottomAppearance = new Appearance();
+    final RenderingAttributes bottomRenderingAttributes = new RenderingAttributes();
+    bottomRenderingAttributes.setVisible(false);
+    bottomAppearance.setRenderingAttributes(bottomRenderingAttributes);
+    bottomRenderingAttributes.setCapability(RenderingAttributes.ALLOW_VISIBLE_WRITE);
+    Shape3D bottomHalfSphere = new Shape3D(createHalfSphereGeometry(false), bottomAppearance);
+    backgroundBranch.addChild(bottomHalfSphere);
 
+    // Add two planes at ground level to complete landscape at the horizon when camera is above horizon 
+    // (one at y = -0.01 to fill the horizon and a lower one to fill the lower part of the scene)  
+    final Appearance groundBackgroundAppearance = new Appearance();
+    TextureAttributes groundBackgroundTextureAttributes = new TextureAttributes();
+    groundBackgroundTextureAttributes.setTextureMode(TextureAttributes.MODULATE);
+    groundBackgroundAppearance.setTextureAttributes(groundBackgroundTextureAttributes);
+    groundBackgroundAppearance.setTexCoordGeneration(
+        new TexCoordGeneration(TexCoordGeneration.OBJECT_LINEAR, TexCoordGeneration.TEXTURE_COORDINATE_2, 
+            new Vector4f(1E5f, 0, 0, 0), new Vector4f(0, 0, 1E5f, 0)));
+    final RenderingAttributes groundRenderingAttributes = new RenderingAttributes();
+    groundBackgroundAppearance.setRenderingAttributes(groundRenderingAttributes);
+    // Allow ground color and texture to change
+    groundBackgroundAppearance.setCapability(Appearance.ALLOW_TEXTURE_WRITE);
+    groundBackgroundAppearance.setCapability(Appearance.ALLOW_MATERIAL_WRITE);
+    groundRenderingAttributes.setCapability(RenderingAttributes.ALLOW_VISIBLE_WRITE);
+
+    GeometryInfo geometryInfo = new GeometryInfo (GeometryInfo.QUAD_ARRAY);
+    geometryInfo.setCoordinates(new Point3f [] {
+          new Point3f(-1f, -0.01f, -1f),
+          new Point3f(-1f, -0.01f, 1f),
+          new Point3f(1f, -0.01f, 1f),
+          new Point3f(1f, -0.01f, -1f),
+          new Point3f(-1f, -0.1f, -1f),
+          new Point3f(-1f, -0.1f, 1f),
+          new Point3f(1f, -0.1f, 1f),
+          new Point3f(1f, -0.1f, -1f)});
+    geometryInfo.setCoordinateIndices(new int [] {0, 1, 2, 3, 4, 5, 6, 7});
+    geometryInfo.setNormals(new Vector3f [] {new Vector3f(0, 1, 0)});
+    geometryInfo.setNormalIndices(new int [] {0, 0, 0, 0, 0, 0, 0, 0});
+    Shape3D groundBackground = new Shape3D(geometryInfo.getIndexedGeometryArray(), groundBackgroundAppearance);
+    backgroundBranch.addChild(groundBackground);
+    
+    // Add its own lights to background to ensure they have an effect
+    for (Light light : createBackgroundLights(listenToHomeUpdates)) {
+      backgroundBranch.addChild(light);
+    }
+    
     final Background background = new Background(backgroundBranch);
-    updateBackgroundColorAndTexture(backgroundAppearance, this.home, waitForLoading);
+    updateBackgroundColorAndTexture(skyBackgroundAppearance, groundBackgroundAppearance, this.home, waitForLoading);
     background.setApplicationBounds(new BoundingBox(
         new Point3d(-1E7, -1E7, -1E7), 
         new Point3d(1E7, 1E7, 1E7)));    
     
     if (listenToHomeUpdates) {
       // Add a listener on sky color and texture properties change 
-      this.skyColorListener = new PropertyChangeListener() {
+      this.backgroundChangeListener = new PropertyChangeListener() {
           public void propertyChange(PropertyChangeEvent ev) {
-            updateBackgroundColorAndTexture(backgroundAppearance, home, waitForLoading);
+            updateBackgroundColorAndTexture(skyBackgroundAppearance, groundBackgroundAppearance, home, waitForLoading);
           }
         };
       this.home.getEnvironment().addPropertyChangeListener(
-          HomeEnvironment.Property.SKY_COLOR, this.skyColorListener);
+          HomeEnvironment.Property.SKY_COLOR, this.backgroundChangeListener);
       this.home.getEnvironment().addPropertyChangeListener(
-          HomeEnvironment.Property.SKY_TEXTURE, this.skyColorListener);
+          HomeEnvironment.Property.SKY_TEXTURE, this.backgroundChangeListener);
+      this.home.getEnvironment().addPropertyChangeListener(
+          HomeEnvironment.Property.GROUND_COLOR, this.backgroundChangeListener);
+      this.home.getEnvironment().addPropertyChangeListener(
+          HomeEnvironment.Property.GROUND_TEXTURE, this.backgroundChangeListener);
+      // Make groundBackground invisible and bottom half sphere visible if camera is below the ground
+      this.elevationChangeListener = new PropertyChangeListener() {
+          public void propertyChange(PropertyChangeEvent ev) {
+            if (ev.getSource() == home) {
+              // Move listener to the new camera
+              ((Camera)ev.getOldValue()).removePropertyChangeListener(this);
+              home.getCamera().addPropertyChangeListener(this);
+            }
+            if (ev.getSource() == home
+                || Camera.Property.Z.name().equals(ev.getPropertyName())) {
+              groundRenderingAttributes.setVisible(home.getCamera().getZ() >= 0);
+              bottomRenderingAttributes.setVisible(home.getCamera().getZ() < 0);              
+            }
+          }
+        };
+      this.home.getCamera().addPropertyChangeListener(this.elevationChangeListener);
+      this.home.addPropertyChangeListener(Home.Property.CAMERA, this.elevationChangeListener);
     }
     return background;
   }
@@ -1714,29 +1919,56 @@ public class HomeComponent3D extends JComponent implements com.eteks.sweethome3d
   /**
    * Updates <code>backgroundAppearance</code> color and texture from <code>home</code> sky color and texture.
    */
-  private void updateBackgroundColorAndTexture(final Appearance backgroundAppearance, Home home, 
+  private void updateBackgroundColorAndTexture(final Appearance skyBackgroundAppearance,
+                                               final Appearance groundBackgroundAppearance,
+                                               Home home, 
                                                boolean waitForLoading) {
     Color3f skyColor = new Color3f(new Color(home.getEnvironment().getSkyColor()));
-    backgroundAppearance.getColoringAttributes().setColor(skyColor);
+    skyBackgroundAppearance.getColoringAttributes().setColor(skyColor);
     HomeTexture skyTexture = home.getEnvironment().getSkyTexture();
     if (skyTexture != null) {
       TextureManager textureManager = TextureManager.getInstance();
       if (waitForLoading) {
         // Don't share the background texture otherwise if might not be rendered correctly
-        backgroundAppearance.setTexture(textureManager.loadTexture(skyTexture.getImage()));
+        skyBackgroundAppearance.setTexture(textureManager.loadTexture(skyTexture.getImage()));
       } else {
         textureManager.loadTexture(skyTexture.getImage(), waitForLoading, 
             new TextureManager.TextureObserver() {
                 public void textureUpdated(Texture texture) {
                   // Use a copy of the texture in case it's used in an other universe
-                  backgroundAppearance.setTexture((Texture)texture.cloneNodeComponent(false));
+                  skyBackgroundAppearance.setTexture((Texture)texture.cloneNodeComponent(false));
                 }
               });
       }
     } else {
-      backgroundAppearance.setTexture(null);
+      skyBackgroundAppearance.setTexture(null);
     }
 
+    HomeTexture groundTexture = home.getEnvironment().getGroundTexture();
+    if (groundTexture != null) {
+      groundBackgroundAppearance.setMaterial(new Material(
+          new Color3f(1, 1, 1), new Color3f(), new Color3f(1, 1, 1), new Color3f(0, 0, 0), 1));
+      TextureManager textureManager = TextureManager.getInstance();
+      if (waitForLoading) {
+        groundBackgroundAppearance.setTexture(textureManager.loadTexture(groundTexture.getImage()));
+      } else {
+        textureManager.loadTexture(groundTexture.getImage(), waitForLoading, 
+            new TextureManager.TextureObserver() {
+                public void textureUpdated(Texture texture) {
+                  // Use a copy of the texture in case it's used in an other universe
+                  groundBackgroundAppearance.setTexture((Texture)texture.cloneNodeComponent(false));
+                }
+              });
+      }
+    } else {
+      int groundColor = home.getEnvironment().getGroundColor();
+      Color3f color = new Color3f(((groundColor >>> 16) & 0xFF) / 255.f,
+                                  ((groundColor >>> 8) & 0xFF) / 255.f,
+                                   (groundColor & 0xFF) / 255.f);
+      groundBackgroundAppearance.setMaterial(new Material(color, new Color3f(), color, new Color3f(0, 0, 0), 1));
+      groundBackgroundAppearance.setTexture(null);
+    }
+    
     clearPrintedImageCache();
   }
   
@@ -1783,6 +2015,43 @@ public class HomeComponent3D extends JComponent implements com.eteks.sweethome3d
     return transformGroup;
   }
   
+  /**
+   * Returns the lights used for the background.
+   */
+  private Light [] createBackgroundLights(boolean listenToHomeUpdates) {
+    final Light [] lights = {
+        // Use just one direct light for background because only one horizontal plane is under light 
+        new DirectionalLight(new Color3f(1.435f, 1.435f, 1.435f), new Vector3f(0f, -1f, 0f)),         
+        new AmbientLight(new Color3f(0.2f, 0.2f, 0.2f))}; 
+    for (int i = 0; i < lights.length - 1; i++) {
+      // Allow directional lights color and influencing bounds to change
+      lights [i].setCapability(DirectionalLight.ALLOW_COLOR_WRITE);
+      // Store default color in user data
+      Color3f defaultColor = new Color3f();
+      lights [i].getColor(defaultColor);
+      lights [i].setUserData(defaultColor);
+      updateLightColor(lights [i]);
+    }
+    
+    final Bounds defaultInfluencingBounds = new BoundingSphere(new Point3d(), 2);
+    for (Light light : lights) {
+      light.setInfluencingBounds(defaultInfluencingBounds);
+    }
+    
+    if (listenToHomeUpdates) {
+      // Add a listener on light color property change to home
+      this.backgroundLightColorListener = new PropertyChangeListener() {
+          public void propertyChange(PropertyChangeEvent ev) {
+            updateLightColor(lights [0]);
+          }
+        };
+      this.home.getEnvironment().addPropertyChangeListener(
+          HomeEnvironment.Property.LIGHT_COLOR, this.backgroundLightColorListener);
+    }
+    
+    return lights;
+  }
+
   /**
    * Returns the lights of the scene.
    */
@@ -1891,6 +2160,7 @@ public class HomeComponent3D extends JComponent implements com.eteks.sweethome3d
             }
           }
         };
+        
       this.home.getEnvironment().addPropertyChangeListener(
           HomeEnvironment.Property.SUBPART_SIZE_UNDER_LIGHT, this.subpartSizeListener);
       this.subpartSizeListener.propertyChange(null);
@@ -2123,6 +2393,8 @@ public class HomeComponent3D extends JComponent implements com.eteks.sweethome3d
           if (HomePieceOfFurniture.Property.X.name().equals(propertyName)
               || HomePieceOfFurniture.Property.Y.name().equals(propertyName)
               || HomePieceOfFurniture.Property.ANGLE.name().equals(propertyName)
+              || HomePieceOfFurniture.Property.ROLL.name().equals(propertyName)
+              || HomePieceOfFurniture.Property.PITCH.name().equals(propertyName)
               || HomePieceOfFurniture.Property.WIDTH.name().equals(propertyName)
               || HomePieceOfFurniture.Property.DEPTH.name().equals(propertyName)) {
             updatePieceOfFurnitureGeometry(updatedPiece);
@@ -2201,6 +2473,8 @@ public class HomeComponent3D extends JComponent implements com.eteks.sweethome3d
             updateObjects(home.getWalls());
           } else if (containsStaircases(piece)) {
             updateObjects(home.getRooms());
+          } else {
+            approximateHomeBoundsCache = null;
           }
           groundChangeListener.propertyChange(null);
           updateObjectsLightScope(Arrays.asList(new HomePieceOfFurniture [] {piece}));
@@ -2526,7 +2800,7 @@ public class HomeComponent3D extends JComponent implements com.eteks.sweethome3d
                       break;
                     }
                   }
-                  for (Light light : defaultLights) {
+                  for (Light light : sceneLights) {
                     if (light instanceof DirectionalLight) {
                       if (objectInOutsideLightScope && light.indexOfScope(object3D) == -1) {
                         light.addScope(object3D);

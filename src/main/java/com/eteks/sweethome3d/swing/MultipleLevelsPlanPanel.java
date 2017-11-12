@@ -49,9 +49,12 @@ import java.awt.print.Printable;
 import java.awt.print.PrinterException;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
+import java.util.Properties;
 
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
@@ -71,6 +74,7 @@ import com.eteks.sweethome3d.model.CollectionEvent;
 import com.eteks.sweethome3d.model.CollectionListener;
 import com.eteks.sweethome3d.model.DimensionLine;
 import com.eteks.sweethome3d.model.Home;
+import com.eteks.sweethome3d.model.HomePieceOfFurniture;
 import com.eteks.sweethome3d.model.Level;
 import com.eteks.sweethome3d.model.Selectable;
 import com.eteks.sweethome3d.model.TextStyle;
@@ -459,6 +463,27 @@ public class MultipleLevelsPlanPanel extends JPanel implements PlanView, Printab
   }
   
   /**
+   * Returns an image of the plan for transfer purpose.
+   */
+  public Object createTransferData(DataType dataType) {
+    return this.planComponent.createTransferData(dataType);
+  }
+  
+  /**
+   * Returns <code>true</code> if the plan component supports the given format type.
+   */
+  public boolean isFormatTypeSupported(FormatType formatType) {
+    return this.planComponent.isFormatTypeSupported(formatType);
+  }
+  
+  /**
+   * Writes the plan in the given output stream at SVG (Scalable Vector Graphics) format if this is the requested format.
+   */
+  public void exportData(OutputStream out, FormatType formatType, Properties settings) throws IOException {
+    this.planComponent.exportData(out, formatType, settings);
+  }
+
+  /**
    * Sets rectangle selection feedback coordinates. 
    */
   public void setRectangleFeedback(float x0, float y0, float x1, float y1) {
@@ -644,6 +669,20 @@ public class MultipleLevelsPlanPanel extends JPanel implements PlanView, Printab
     return viewport.contains(point);
   }
 
+  /**
+   * Returns the size of the given piece of furniture in the horizontal plan.
+   */
+  public float [] getPieceOfFurnitureSizeInPlan(HomePieceOfFurniture piece) {
+    return this.planComponent.getPieceOfFurnitureSizeInPlan(piece);
+  }
+
+  /**
+   * Returns <code>true</code> if this component is able to compute the size of horizontally rotated furniture.
+   */
+  public boolean isFurnitureSizeInPlanSupported() {
+    return this.planComponent.isFurnitureSizeInPlanSupported();
+  }
+  
   /**
    * Returns the component used as an horizontal ruler for the plan displayed by this component.
    */

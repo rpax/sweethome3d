@@ -729,6 +729,16 @@ public class FileContentManager implements ContentManager {
                                  ContentType   contentType,
                                  String        path,
                                  boolean       save) {
+    if (OperatingSystem.isWindows()
+        && UIManager.getLookAndFeel().getClass().getName().equals(UIManager.getSystemLookAndFeelClassName())
+        // Workaround for bug http://bugs.java.com/bugdatabase/view_bug.do?bug_id=8179014 under Windows 10 Creator update
+        && !OperatingSystem.isJavaVersionGreaterOrEqual("1.8.0_141")
+        // Testing Windows 10 version changed fixed in Java 8u60 until which "os.version" was equal to "6.3"
+        && (!OperatingSystem.isJavaVersionGreaterOrEqual("1.8.0_60") && OperatingSystem.compareVersions(System.getProperty("os.version"), "6.3") >= 0
+             || OperatingSystem.isJavaVersionGreaterOrEqual("1.8.0_60") && OperatingSystem.compareVersions(System.getProperty("os.version"), "10.0") >= 0)) {
+      UIManager.put("FileChooser.useSystemExtensionHiding", false);
+    }
+  
     final JFileChooser fileChooser;
     if (isDirectory(contentType)) {
       fileChooser = new DirectoryChooser(this.preferences);

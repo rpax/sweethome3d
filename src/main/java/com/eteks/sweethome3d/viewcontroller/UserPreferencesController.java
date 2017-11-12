@@ -35,9 +35,9 @@ public class UserPreferencesController implements Controller {
    * The properties that may be edited by the view associated to this controller. 
    */
   public enum Property {LANGUAGE, UNIT, MAGNETISM_ENABLED, RULERS_VISIBLE, GRID_VISIBLE, DEFAULT_FONT_NAME, 
-      FURNITURE_VIEWED_FROM_TOP, ROOM_FLOOR_COLORED_OR_TEXTURED, WALL_PATTERN, NEW_WALL_PATTERN,   
+      FURNITURE_VIEWED_FROM_TOP, FURNITURE_MODEL_ICON_SIZE, ROOM_FLOOR_COLORED_OR_TEXTURED, WALL_PATTERN, NEW_WALL_PATTERN,   
       NEW_WALL_THICKNESS, NEW_WALL_HEIGHT, NEW_FLOOR_THICKNESS, FURNITURE_CATALOG_VIEWED_IN_TREE, 
-      NAVIGATION_PANEL_VISIBLE, AERIAL_VIEW_CENTERED_ON_SELECTION_ENABLED,
+      NAVIGATION_PANEL_VISIBLE, AERIAL_VIEW_CENTERED_ON_SELECTION_ENABLED, OBSERVER_CAMERA_SELECTED_AT_CHANGE,
       CHECK_UPDATES_ENABLED, AUTO_SAVE_DELAY_FOR_RECOVERY, AUTO_SAVE_FOR_RECOVERY_ENABLED}
   
   private final UserPreferences         preferences;
@@ -51,11 +51,13 @@ public class UserPreferencesController implements Controller {
   private boolean                       furnitureCatalogViewedInTree;
   private boolean                       navigationPanelVisible;
   private boolean                       aerialViewCenteredOnSelectionEnabled;
+  private boolean                       observerCameraSelectedAtChange;
   private boolean                       magnetismEnabled;
   private boolean                       rulersVisible;
   private boolean                       gridVisible;
   private String                        defaultFontName;
   private boolean                       furnitureViewedFromTop;
+  private int                           furnitureModelIconSize;
   private boolean                       roomFloorColoredOrTextured;
   private TextureImage                  wallPattern;
   private TextureImage                  newWallPattern;
@@ -131,11 +133,13 @@ public class UserPreferencesController implements Controller {
     setFurnitureCatalogViewedInTree(this.preferences.isFurnitureCatalogViewedInTree());
     setNavigationPanelVisible(this.preferences.isNavigationPanelVisible());
     setAerialViewCenteredOnSelectionEnabled(this.preferences.isAerialViewCenteredOnSelectionEnabled());
+    setObserverCameraSelectedAtChange(this.preferences.isObserverCameraSelectedAtChange());
     setMagnetismEnabled(this.preferences.isMagnetismEnabled());
     setRulersVisible(this.preferences.isRulersVisible());
     setGridVisible(this.preferences.isGridVisible());
     setDefaultFontName(this.preferences.getDefaultFontName());
     setFurnitureViewedFromTop(this.preferences.isFurnitureViewedFromTop());
+    setFurnitureModelIconSize(this.preferences.getFurnitureModelIconSize());
     setRoomFloorColoredOrTextured(this.preferences.isRoomFloorColoredOrTextured());
     setWallPattern(this.preferences.getWallPattern());
     setNewWallPattern(this.preferences.getNewWallPattern());
@@ -257,6 +261,26 @@ public class UserPreferencesController implements Controller {
   }
   
   /**
+   * Sets whether the observer camera should be selected at each change.
+   * @since 5.5
+   */
+  public void setObserverCameraSelectedAtChange(boolean observerCameraSelectedAtChange) {
+    if (observerCameraSelectedAtChange != this.observerCameraSelectedAtChange) {
+      this.observerCameraSelectedAtChange = observerCameraSelectedAtChange;
+      this.propertyChangeSupport.firePropertyChange(Property.OBSERVER_CAMERA_SELECTED_AT_CHANGE.name(), 
+          !observerCameraSelectedAtChange, observerCameraSelectedAtChange);
+    }
+  }
+  
+  /**
+   * Returns whether the observer camera should be selected at each change.
+   * @since 5.5
+   */
+  public boolean isObserverCameraSelectedAtChange() {
+    return this.observerCameraSelectedAtChange;
+  }
+
+  /**
    * Sets whether magnetism is enabled or not.
    */
   public void setMagnetismEnabled(boolean magnetismEnabled) {
@@ -345,6 +369,26 @@ public class UserPreferencesController implements Controller {
    */
   public boolean isFurnitureViewedFromTop() {
     return this.furnitureViewedFromTop;
+  }
+
+  /**
+   * Sets the size used to generate icons of furniture viewed from top.
+   * @since 5.5
+   */
+  public void setFurnitureModelIconSize(int furnitureModelIconSize) {
+    if (furnitureModelIconSize != this.furnitureModelIconSize) {
+      int oldSize = this.furnitureModelIconSize;
+      this.furnitureModelIconSize = furnitureModelIconSize;
+      this.propertyChangeSupport.firePropertyChange(Property.FURNITURE_MODEL_ICON_SIZE.name(), oldSize, furnitureModelIconSize);
+    }
+  }
+
+  /**
+   * Returns the size used to generate icons of furniture viewed from top.
+   * @since 5.5
+   */
+  public int getFurnitureModelIconSize() {
+    return this.furnitureModelIconSize;
   }
 
   /**
@@ -560,11 +604,13 @@ public class UserPreferencesController implements Controller {
     this.preferences.setFurnitureCatalogViewedInTree(isFurnitureCatalogViewedInTree());
     this.preferences.setNavigationPanelVisible(isNavigationPanelVisible());
     this.preferences.setAerialViewCenteredOnSelectionEnabled(isAerialViewCenteredOnSelectionEnabled());
+    this.preferences.setObserverCameraSelectedAtChange(isObserverCameraSelectedAtChange());
     this.preferences.setMagnetismEnabled(isMagnetismEnabled());
     this.preferences.setRulersVisible(isRulersVisible());
     this.preferences.setGridVisible(isGridVisible());
     this.preferences.setDefaultFontName(getDefaultFontName());
     this.preferences.setFurnitureViewedFromTop(isFurnitureViewedFromTop());
+    this.preferences.setFurnitureModelIconSize(getFurnitureModelIconSize());
     this.preferences.setFloorColoredOrTextured(isRoomFloorColoredOrTextured());
     this.preferences.setWallPattern(getWallPattern());
     this.preferences.setNewWallPattern(getNewWallPattern());
