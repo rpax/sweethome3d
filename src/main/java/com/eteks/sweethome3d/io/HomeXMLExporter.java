@@ -1,5 +1,5 @@
 /*
- * HomeXMLExporter.java 
+ * HomeXMLExporter.java
  *
  * Copyright (c) 2015 Emmanuel PUYBARET / eTeks <info@eteks.com>. All Rights Reserved.
  *
@@ -51,6 +51,7 @@ import com.eteks.sweethome3d.model.Polyline;
 import com.eteks.sweethome3d.model.Room;
 import com.eteks.sweethome3d.model.Sash;
 import com.eteks.sweethome3d.model.TextStyle;
+import com.eteks.sweethome3d.model.Transformation;
 import com.eteks.sweethome3d.model.Wall;
 import com.eteks.sweethome3d.tools.URLContent;
 
@@ -69,10 +70,10 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
   void setSavedContentNames(Map<Content, String> savedContentNames) {
     this.savedContentNames = savedContentNames;
   }
-  
+
   /**
    * Returns the XML id of the given <code>object</code> that can be referenced by other elements.
-   * @throws IllegalArgumentException if the <code>object</code> has no associated id. 
+   * @throws IllegalArgumentException if the <code>object</code> has no associated id.
    */
   protected String getId(Object object) {
     if (object == null) {
@@ -85,7 +86,7 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
       throw new IllegalArgumentException("No Id provided for object of class " + object.getClass().getName());
     }
   }
-  
+
   /**
    * Writes in XML the <code>home</code> object and the objects that depends on it with the given <code>writer</code>.
    */
@@ -104,12 +105,13 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
     }
     super.writeElement(writer, home);
   }
-  
+
   /**
    * Writes as XML attributes some data of <code>home</code> object with the given <code>writer</code>.
    */
   @Override
   protected void writeAttributes(XMLWriter writer, Home home) throws IOException {
+    home.setVersion(Home.CURRENT_VERSION);
     writer.writeAttribute("version", String.valueOf(home.getVersion()));
     writer.writeAttribute("name", home.getName(), null);
     writer.writeAttribute("camera", home.getCamera() == home.getObserverCamera() ? "observerCamera" : "topCamera");
@@ -121,7 +123,7 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
     }
     writer.writeBooleanAttribute("furnitureDescendingSorted", home.isFurnitureDescendingSorted(), false);
   }
-  
+
   /**
    * Writes as XML elements some objects that depends on of <code>home</code> with the given <code>writer</code>.
    */
@@ -182,6 +184,7 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
         @Override
         protected void writeAttributes(XMLWriter writer, HomeEnvironment environment) throws IOException {
           writer.writeColorAttribute("groundColor", environment.getGroundColor());
+          writer.writeBooleanAttribute("backgroundImageVisibleOnGround3D", environment.isBackgroundImageVisibleOnGround3D(), false);
           writer.writeColorAttribute("skyColor", environment.getSkyColor());
           writer.writeColorAttribute("lightColor", environment.getLightColor());
           writer.writeFloatAttribute("wallsAlpha", environment.getWallsAlpha(), 0);
@@ -197,9 +200,10 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
           writer.writeIntegerAttribute("videoWidth", environment.getVideoWidth());
           writer.writeAttribute("videoAspectRatio", environment.getVideoAspectRatio().name());
           writer.writeIntegerAttribute("videoQuality", environment.getVideoQuality());
+          writer.writeFloatAttribute("videoSpeed", environment.getVideoSpeed(), 2400f / 3600);
           writer.writeIntegerAttribute("videoFrameRate", environment.getVideoFrameRate());
         }
-        
+
         @Override
         protected void writeChildren(XMLWriter writer, HomeEnvironment environment) throws IOException {
           if (!environment.getVideoCameraPath().isEmpty()) {
@@ -277,7 +281,7 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
           writer.writeAttribute("timeZone", compass.getTimeZone());
           writer.writeBooleanAttribute("visible", compass.isVisible(), true);
         }
-        
+
         @Override
         protected void writeChildren(XMLWriter writer, Compass compass) throws IOException {
           writeProperties(writer, compass);
@@ -307,7 +311,7 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
               writer.writeBooleanAttribute("fixedSize", ((ObserverCamera)camera).isFixedSize(), false);
             }
           }
-          
+
           @Override
           protected void writeChildren(XMLWriter writer, Camera camera) throws IOException {
             writeProperties(writer, camera);
@@ -332,7 +336,7 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
           writer.writeBooleanAttribute("visible", level.isVisible(), true);
           writer.writeBooleanAttribute("viewable", level.isViewable(), true);
         }
-        
+
         @Override
         protected void writeChildren(XMLWriter writer, Level level) throws IOException {
           writeProperties(writer, level);
@@ -347,21 +351,21 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
   protected void writePieceOfFurniture(XMLWriter writer, HomePieceOfFurniture piece) throws IOException {
     new PieceOfFurnitureExporter().writeElement(writer, piece);
   }
-  
+
   /**
    * Default exporter class used to write a piece of furniture in XML.
    */
-  protected class PieceOfFurnitureExporter extends ObjectXMLExporter<HomePieceOfFurniture> { 
+  protected class PieceOfFurnitureExporter extends ObjectXMLExporter<HomePieceOfFurniture> {
     public PieceOfFurnitureExporter() {
     }
-    
+
     @Override
     protected void writeAttributes(XMLWriter writer, HomePieceOfFurniture piece) throws IOException {
       if (piece.getLevel() != null) {
-        writer.writeAttribute("level", getId(piece.getLevel()));        
+        writer.writeAttribute("level", getId(piece.getLevel()));
       }
       writer.writeAttribute("catalogId", piece.getCatalogId(), null);
-      writer.writeAttribute("name", piece.getName());        
+      writer.writeAttribute("name", piece.getName());
       writer.writeAttribute("creator", piece.getCreator(), null);
       writer.writeAttribute("model", getExportedContentName(piece, piece.getModel()), null);
       writer.writeAttribute("icon", getExportedContentName(piece, piece.getIcon()), null);
@@ -386,15 +390,15 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
         writer.writeFloatAttribute("shininess", piece.getShininess());
       }
       float [][] modelRotation = piece.getModelRotation();
-      String modelRotationString = 
+      String modelRotationString =
           floatToString(modelRotation[0][0]) + " " + floatToString(modelRotation[0][1]) + " " + floatToString(modelRotation[0][2]) + " "
         + floatToString(modelRotation[1][0]) + " " + floatToString(modelRotation[1][1]) + " " + floatToString(modelRotation[1][2]) + " "
         + floatToString(modelRotation[2][0]) + " " + floatToString(modelRotation[2][1]) + " " + floatToString(modelRotation[2][2]);
       writer.writeAttribute("modelRotation", modelRotationString, "1 0 0 0 1 0 0 0 1");
       writer.writeBooleanAttribute("modelCenteredAtOrigin", piece.isModelCenteredAtOrigin(), true);
       writer.writeLongAttribute("modelSize", piece.getModelSize());
-      writer.writeAttribute("description", piece.getDescription(), null);        
-      writer.writeAttribute("information", piece.getInformation(), null);        
+      writer.writeAttribute("description", piece.getDescription(), null);
+      writer.writeAttribute("information", piece.getInformation(), null);
       writer.writeBooleanAttribute("movable", piece.isMovable(), true);
       if (!(piece instanceof HomeFurnitureGroup)) {
         if (!(piece instanceof HomeDoorOrWindow)) {
@@ -430,18 +434,22 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
         HomeDoorOrWindow doorOrWindow = (HomeDoorOrWindow)piece;
         writer.writeFloatAttribute("wallThickness", doorOrWindow.getWallThickness(), 1f);
         writer.writeFloatAttribute("wallDistance", doorOrWindow.getWallDistance(), 0f);
+        writer.writeFloatAttribute("wallWidth", doorOrWindow.getWallWidth(), 1f);
+        writer.writeFloatAttribute("wallLeft", doorOrWindow.getWallLeft(), 0f);
+        writer.writeFloatAttribute("wallHeight", doorOrWindow.getWallHeight(), 1f);
+        writer.writeFloatAttribute("wallTop", doorOrWindow.getWallTop(), 0f);
         writer.writeAttribute("cutOutShape", doorOrWindow.getCutOutShape(), null);
         writer.writeBooleanAttribute("wallCutOutOnBothSides", doorOrWindow.isWallCutOutOnBothSides(), false);
         writer.writeBooleanAttribute("widthDepthDeformable", doorOrWindow.isWidthDepthDeformable(), true);
         writer.writeBooleanAttribute("boundToWall", doorOrWindow.isBoundToWall(), true);
       } else if (piece instanceof HomeLight) {
         writer.writeFloatAttribute("power", ((HomeLight)piece).getPower());
-      } 
+      }
     }
-    
+
     @Override
     protected void writeChildren(XMLWriter writer, HomePieceOfFurniture piece) throws IOException {
-      // Write subclass child elements 
+      // Write subclass child elements
       if (piece instanceof HomeFurnitureGroup) {
         for (HomePieceOfFurniture groupPiece : ((HomeFurnitureGroup)piece).getFurniture()) {
           writePieceOfFurniture(writer, groupPiece);
@@ -467,14 +475,27 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
           writer.writeEndElement();
         }
       }
-      
-      // Write child elements 
+
+      // Write child elements
       writeProperties(writer, piece);
       writeTextStyle(writer, piece.getNameStyle(), "nameStyle");
       writeTexture(writer, piece.getTexture(), null);
       if (piece.getModelMaterials() != null) {
         for (HomeMaterial material : piece.getModelMaterials()) {
           writeMaterial(writer, material, piece.getModel());
+        }
+      }
+      if (piece.getModelTransformations() != null) {
+        for (Transformation transformation : piece.getModelTransformations()) {
+          writer.writeStartElement("transformation");
+          writer.writeAttribute("name", transformation.getName(), null);
+          float [][] matrix = transformation.getMatrix();
+          String matrixString =
+              floatToString(matrix[0][0]) + " " + floatToString(matrix[0][1]) + " " + floatToString(matrix[0][2]) + " " + floatToString(matrix[0][3]) + " "
+            + floatToString(matrix[1][0]) + " " + floatToString(matrix[1][1]) + " " + floatToString(matrix[1][2]) + " " + floatToString(matrix[1][3]) + " "
+            + floatToString(matrix[2][0]) + " " + floatToString(matrix[2][1]) + " " + floatToString(matrix[2][2]) + " " + floatToString(matrix[2][3]);
+          writer.writeAttribute("matrix", matrixString);
+          writer.writeEndElement();
         }
       }
     }
@@ -495,7 +516,7 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
               writer.writeFloatAttribute("shininess", material.getShininess());
             }
           }
-          
+
           @Override
           protected void writeChildren(XMLWriter writer, HomeMaterial material) throws IOException {
             writeTexture(writer, material.getTexture(), null);
@@ -503,7 +524,7 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
         }.writeElement(writer, material);
     }
   }
-  
+
   /**
    * Writes in XML the <code>wall</code> object with the given <code>writer</code>.
    */
@@ -513,7 +534,7 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
         protected void writeAttributes(XMLWriter writer, Wall wall) throws IOException {
           writer.writeAttribute("id", getId(wall));
           if (wall.getLevel() != null) {
-            writer.writeAttribute("level", getId(wall.getLevel()));        
+            writer.writeAttribute("level", getId(wall.getLevel()));
           }
           if (wall.getWallAtStart() != null) {
             String id = getId(wall.getWallAtStart());
@@ -546,7 +567,7 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
           writer.writeColorAttribute("rightSideColor", wall.getRightSideColor());
           writer.writeFloatAttribute("rightSideShininess", wall.getRightSideShininess(), 0);
         }
-        
+
         @Override
         protected void writeChildren(XMLWriter writer, Wall wall) throws IOException {
           writeProperties(writer, wall);
@@ -557,7 +578,7 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
         }
       }.writeElement(writer, wall);
   }
-  
+
   /**
    * Writes in XML the <code>room</code> object with the given <code>writer</code>.
    */
@@ -566,7 +587,7 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
         @Override
         protected void writeAttributes(XMLWriter writer, Room room) throws IOException {
           if (room.getLevel() != null) {
-            writer.writeAttribute("level", getId(room.getLevel()));        
+            writer.writeAttribute("level", getId(room.getLevel()));
           }
           writer.writeAttribute("name", room.getName(), null);
           writer.writeFloatAttribute("nameAngle", room.getNameAngle(), 0f);
@@ -583,7 +604,7 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
           writer.writeColorAttribute("ceilingColor", room.getCeilingColor());
           writer.writeFloatAttribute("ceilingShininess", room.getCeilingShininess(), 0);
         }
-        
+
         @Override
         protected void writeChildren(XMLWriter writer, Room room) throws IOException {
           writeProperties(writer, room);
@@ -600,7 +621,7 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
         }
       }.writeElement(writer, room);
   }
-  
+
   /**
    * Writes in XML the <code>polyline</code> object with the given <code>writer</code>.
    */
@@ -609,18 +630,31 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
         @Override
         protected void writeAttributes(XMLWriter writer, Polyline polyline) throws IOException {
           if (polyline.getLevel() != null) {
-            writer.writeAttribute("level", getId(polyline.getLevel()));        
+            writer.writeAttribute("level", getId(polyline.getLevel()));
           }
           writer.writeFloatAttribute("thickness", polyline.getThickness(), 1f);
-          writer.writeAttribute("capStyle", polyline.getCapStyle().name());
-          writer.writeAttribute("joinStyle", polyline.getJoinStyle().name());
-          writer.writeAttribute("dashStyle", polyline.getDashStyle().name());
-          writer.writeAttribute("startArrowStyle", polyline.getStartArrowStyle().name());
-          writer.writeAttribute("endArrowStyle", polyline.getEndArrowStyle().name());
+          writer.writeAttribute("capStyle", polyline.getCapStyle().name(), Polyline.CapStyle.BUTT.name());
+          writer.writeAttribute("joinStyle", polyline.getJoinStyle().name(), Polyline.JoinStyle.MITER.name());
+          writer.writeAttribute("dashStyle", polyline.getDashStyle().name(), Polyline.DashStyle.SOLID.name());
+          if (polyline.getDashStyle() == Polyline.DashStyle.CUSTOMIZED) {
+            StringBuilder dashPattern = new StringBuilder();
+            for (float dashPart : polyline.getDashPattern()) {
+              dashPattern.append(floatToString(dashPart));
+              dashPattern.append(" ");
+            }
+            dashPattern.setLength(dashPattern.length() - 1);
+            writer.writeAttribute("dashPattern", dashPattern.toString());
+          }
+          writer.writeFloatAttribute("dashOffset", polyline.getDashOffset(), 0f);
+          writer.writeAttribute("startArrowStyle", polyline.getStartArrowStyle().name(), Polyline.ArrowStyle.NONE.name());
+          writer.writeAttribute("endArrowStyle", polyline.getEndArrowStyle().name(), Polyline.ArrowStyle.NONE.name());
+          if (polyline.isVisibleIn3D()) {
+            writer.writeFloatAttribute("elevation", polyline.getElevation());
+          }
           writer.writeColorAttribute("color", polyline.getColor());
           writer.writeBooleanAttribute("closedPath", polyline.isClosedPath(), false);
         }
-        
+
         @Override
         protected void writeChildren(XMLWriter writer, Polyline polyline) throws IOException {
           writeProperties(writer, polyline);
@@ -633,7 +667,7 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
         }
       }.writeElement(writer, polyline);
   }
-  
+
   /**
    * Writes in XML the <code>dimensionLine</code> object with the given <code>writer</code>.
    */
@@ -642,7 +676,7 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
         @Override
         protected void writeAttributes(XMLWriter writer, DimensionLine dimensionLine) throws IOException {
           if (dimensionLine.getLevel() != null) {
-            writer.writeAttribute("level", getId(dimensionLine.getLevel()));        
+            writer.writeAttribute("level", getId(dimensionLine.getLevel()));
           }
           writer.writeFloatAttribute("xStart", dimensionLine.getXStart());
           writer.writeFloatAttribute("yStart", dimensionLine.getYStart());
@@ -650,7 +684,7 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
           writer.writeFloatAttribute("yEnd", dimensionLine.getYEnd());
           writer.writeFloatAttribute("offset", dimensionLine.getOffset());
         }
-        
+
         @Override
         protected void writeChildren(XMLWriter writer, DimensionLine dimensionLine) throws IOException {
           writeProperties(writer, dimensionLine);
@@ -667,7 +701,7 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
         @Override
         protected void writeAttributes(XMLWriter writer, Label label) throws IOException {
           if (label.getLevel() != null) {
-            writer.writeAttribute("level", getId(label.getLevel()));        
+            writer.writeAttribute("level", getId(label.getLevel()));
           }
           writer.writeFloatAttribute("x", label.getX());
           writer.writeFloatAttribute("y", label.getY());
@@ -677,7 +711,7 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
           writer.writeColorAttribute("color", label.getColor());
           writer.writeColorAttribute("outlineColor", label.getOutlineColor());
         }
-        
+
         @Override
         protected void writeChildren(XMLWriter writer, Label label) throws IOException {
           writeProperties(writer, label);
@@ -689,11 +723,11 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
         }
       }.writeElement(writer, label);
   }
-  
+
   /**
    * Writes in XML the <code>textStyle</code> object with the given <code>writer</code>.
    */
-  protected void writeTextStyle(XMLWriter writer, TextStyle textStyle, 
+  protected void writeTextStyle(XMLWriter writer, TextStyle textStyle,
                                  final String attributeName) throws IOException {
     if (textStyle != null) {
       new ObjectXMLExporter<TextStyle>() {
@@ -704,6 +738,7 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
             writer.writeFloatAttribute("fontSize", textStyle.getFontSize());
             writer.writeBooleanAttribute("bold", textStyle.isBold(), false);
             writer.writeBooleanAttribute("italic", textStyle.isItalic(), false);
+            writer.writeAttribute("alignment", textStyle.getAlignment().name(), TextStyle.Alignment.CENTER.name());
           }
         }.writeElement(writer, textStyle);
     }
@@ -712,7 +747,7 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
   /**
    * Writes in XML the <code>baseboard</code> object with the given <code>writer</code>.
    */
-  protected void writeBaseboard(XMLWriter writer, Baseboard baseboard, 
+  protected void writeBaseboard(XMLWriter writer, Baseboard baseboard,
                                  final String attributeName) throws IOException {
     if (baseboard != null) {
       new ObjectXMLExporter<Baseboard>() {
@@ -723,7 +758,7 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
             writer.writeFloatAttribute("height", baseboard.getHeight());
             writer.writeColorAttribute("color", baseboard.getColor());
           }
-          
+
           @Override
           protected void writeChildren(XMLWriter writer, Baseboard baseboard) throws IOException {
             writeTexture(writer, baseboard.getTexture(), null);
@@ -731,11 +766,11 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
         }.writeElement(writer, baseboard);
     }
   }
-  
+
   /**
    * Writes in XML the <code>texture</code> object with the given <code>writer</code>.
    */
-  protected void writeTexture(XMLWriter writer, HomeTexture texture, 
+  protected void writeTexture(XMLWriter writer, HomeTexture texture,
                                final String attributeName) throws IOException {
     if (texture != null) {
       new ObjectXMLExporter<HomeTexture>() {
@@ -747,15 +782,17 @@ public class HomeXMLExporter extends ObjectXMLExporter<Home> {
             writer.writeAttribute("catalogId", texture.getCatalogId(), null);
             writer.writeFloatAttribute("width", texture.getWidth());
             writer.writeFloatAttribute("height", texture.getHeight());
+            writer.writeFloatAttribute("xOffset", texture.getXOffset(), 0f);
+            writer.writeFloatAttribute("yOffset", texture.getYOffset(), 0f);
             writer.writeFloatAttribute("angle", texture.getAngle(), 0f);
             writer.writeFloatAttribute("scale", texture.getScale(), 1f);
-            writer.writeBooleanAttribute("leftToRightOriented", texture.isLeftToRightOriented(), true); 
+            writer.writeBooleanAttribute("leftToRightOriented", texture.isLeftToRightOriented(), true);
             writer.writeAttribute("image", getExportedContentName(texture, texture.getImage()), null);
           }
         }.writeElement(writer, texture);
     }
   }
-  
+
   /**
    * Writes in XML the properties of the <code>HomeObject</code> instance with the given <code>writer</code>.
    */

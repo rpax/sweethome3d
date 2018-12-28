@@ -59,11 +59,13 @@ import com.eteks.sweethome3d.model.Label;
 import com.eteks.sweethome3d.model.Level;
 import com.eteks.sweethome3d.model.LightSource;
 import com.eteks.sweethome3d.model.ObserverCamera;
+import com.eteks.sweethome3d.model.PieceOfFurniture;
 import com.eteks.sweethome3d.model.Polyline;
 import com.eteks.sweethome3d.model.Room;
 import com.eteks.sweethome3d.model.Sash;
 import com.eteks.sweethome3d.model.TextStyle;
 import com.eteks.sweethome3d.model.TexturesCategory;
+import com.eteks.sweethome3d.model.Transformation;
 import com.eteks.sweethome3d.model.UserPreferences;
 import com.eteks.sweethome3d.model.Wall;
 import com.eteks.sweethome3d.tools.ResourceURLContent;
@@ -93,6 +95,7 @@ import com.eteks.sweethome3d.tools.ResourceURLContent;
  * &lt;!ELEMENT environment ((camera | observerCamera)*, texture?, texture?) >
  * &lt;!ATTLIST environment
  *       groundColor CDATA #IMPLIED
+ *       backgroundImageVisibleOnGround3D (false | true) "false"
  *       skyColor CDATA #IMPLIED
  *       lightColor CDATA #IMPLIED
  *       wallsAlpha CDATA "0"
@@ -103,11 +106,12 @@ import com.eteks.sweethome3d.tools.ResourceURLContent;
  *       subpartSizeUnderLight CDATA "0"
  *       photoWidth CDATA "400"
  *       photoHeight CDATA "300"
- *       photoAspectRatio (FREE_RATIO | VIEW_3D_RATIO | RATIO_4_3 | RATIO_3_2 | RATIO_16_9 | RATIO_2_1 | SQUARE_RATIO) "VIEW_3D_RATIO"
+ *       photoAspectRatio (FREE_RATIO | VIEW_3D_RATIO | RATIO_4_3 | RATIO_3_2 | RATIO_16_9 | RATIO_2_1 | RATIO_24_10 | SQUARE_RATIO) "VIEW_3D_RATIO"
  *       photoQuality CDATA "0"
  *       videoWidth CDATA "320"
- *       videoAspectRatio (RATIO_4_3 | RATIO_16_9) "RATIO_4_3"
+ *       videoAspectRatio (RATIO_4_3 | RATIO_16_9 | RATIO_24_10) "RATIO_4_3"
  *       videoQuality CDATA "0"
+ *       videoSpeed CDATA #IMPLIED
  *       videoFrameRate CDATA "25">
  *
  * &lt;!ELEMENT backgroundImage EMPTY>
@@ -244,18 +248,22 @@ import com.eteks.sweethome3d.tools.ResourceURLContent;
  *       depthInPlan CDATA #IMPLIED
  *       heightInPlan CDATA #IMPLIED'>
  *
- * &lt;!ELEMENT pieceOfFurniture (property*, textStyle?, texture?, material*)>
+ * &lt;!ELEMENT pieceOfFurniture (property*, textStyle?, texture?, material*, transformation*)>
  * &lt;!ATTLIST pieceOfFurniture
  *       %furnitureCommonAttributes;
  *       %pieceOfFurnitureCommonAttributes;
  *       %pieceOfFurnitureHorizontalRotationAttributes;>
  *
- * &lt;!ELEMENT doorOrWindow (sash*, property*, textStyle?, texture?, material*)>
+ * &lt;!ELEMENT doorOrWindow (sash*, property*, textStyle?, texture?, material*, transformation*)>
  * &lt;!ATTLIST doorOrWindow
  *       %furnitureCommonAttributes;
  *       %pieceOfFurnitureCommonAttributes;
  *       wallThickness CDATA "1"
  *       wallDistance CDATA "0"
+ *       wallWidth CDATA "1"
+ *       wallLeft CDATA "0"
+ *       wallHeight CDATA "1"
+ *       wallTop CDATA "0"
  *       wallCutOutOnBothSides (false | true) "false"
  *       widthDepthDeformable (false | true) "true"
  *       cutOutShape CDATA #IMPLIED
@@ -269,7 +277,7 @@ import com.eteks.sweethome3d.tools.ResourceURLContent;
  *       startAngle CDATA #REQUIRED
  *       endAngle CDATA #REQUIRED>
  *
- * &lt;!ELEMENT light (lightSource*, property*, textStyle?, texture?, material*)>
+ * &lt;!ELEMENT light (lightSource*, property*, textStyle?, texture?, material*, transformation*)>
  * &lt;!ATTLIST light
  *       %furnitureCommonAttributes;
  *       %pieceOfFurnitureCommonAttributes;
@@ -290,7 +298,8 @@ import com.eteks.sweethome3d.tools.ResourceURLContent;
  *       fontName CDATA #IMPLIED
  *       fontSize CDATA #REQUIRED
  *       bold (false | true) "false"
- *       italic (false | true) "false">
+ *       italic (false | true) "false"
+ *       alignment (LEFT | CENTER | RIGHT) "CENTER">
  *
  * &lt;!ELEMENT texture EMPTY>
  * &lt;!ATTLIST texture
@@ -299,6 +308,8 @@ import com.eteks.sweethome3d.tools.ResourceURLContent;
  *       name CDATA #REQUIRED
  *       width CDATA #REQUIRED
  *       height CDATA #REQUIRED
+ *       xOffset CDATA "0"
+ *       yOffset CDATA "0"
  *       angle CDATA "0"
  *       scale CDATA "1"
  *       creator CDATA #IMPLIED
@@ -311,6 +322,11 @@ import com.eteks.sweethome3d.tools.ResourceURLContent;
  *       key CDATA #IMPLIED
  *       color CDATA #IMPLIED
  *       shininess CDATA #IMPLIED>
+ *
+ * &lt;!ELEMENT transformation EMPTY>
+ * &lt;!ATTLIST transformation
+ *       name CDATA #REQUIRED
+ *       matrix CDATA #REQUIRED>
  *
  * &lt;!ELEMENT wall (property*, texture?, texture?, baseboard?, baseboard?)>
  * &lt;!ATTLIST wall
@@ -369,9 +385,12 @@ import com.eteks.sweethome3d.tools.ResourceURLContent;
  *       thickness CDATA "1"
  *       capStyle (BUTT | SQUARE | ROUND) "BUTT"
  *       joinStyle (BEVEL | MITER | ROUND | CURVED) "MITER"
- *       dashStyle (SOLID | DOT | DASH | DASH_DOT | DASH_DOT_DOT) "SOLID"
+ *       dashStyle (SOLID | DOT | DASH | DASH_DOT | DASH_DOT_DOT | CUSTOMIZED) "SOLID"
+ *       dashPattern CDATA #IMPLIED
+ *       dashOffset CDATA "0"
  *       startArrowStyle (NONE | DELTA | OPEN | DISC) "NONE"
  *       endArrowStyle (NONE | DELTA | OPEN | DISC) "NONE"
+ *       elevation CDATA #IMPLIED
  *       color CDATA #IMPLIED
  *       closedPath (false | true) "false">
  *
@@ -424,7 +443,8 @@ public class HomeXMLHandler extends DefaultHandler {
   private final Map<String, String> properties = new HashMap<String, String>();
   private final Map<String, TextStyle>    textStyles = new HashMap<String, TextStyle>();
   private final Map<String, HomeTexture>  textures = new HashMap<String, HomeTexture>();
-  private final List<HomeMaterial> materials = new ArrayList<HomeMaterial>();
+  private final List<HomeMaterial>        materials = new ArrayList<HomeMaterial>();
+  private final List<Transformation>      transformations = new ArrayList<Transformation>();
   private HomeTexture materialTexture;
   private final List<Sash>         sashes = new ArrayList<Sash>();
   private final List<LightSource>  lightSources = new ArrayList<LightSource>();
@@ -488,6 +508,7 @@ public class HomeXMLHandler extends DefaultHandler {
       this.textStyles.clear();
       this.textures.clear();
       this.materials.clear();
+      this.transformations.clear();
       this.sashes.clear();
       this.lightSources.clear();
       if ("furnitureGroup".equals(name)) {
@@ -666,6 +687,37 @@ public class HomeXMLHandler extends DefaultHandler {
       }
     } else if ("material".equals(name)) {
       this.materials.add(createMaterial(name, attributesMap));
+    } else if ("transformation".equals(name)) {
+      String matrixAttribute = attributesMap.get("matrix");
+      if (matrixAttribute == null) {
+        throw new SAXException("Missing attribute matrix");
+      } else {
+        String [] values = matrixAttribute.split(" ", 12);
+        if (values.length < 12) {
+          throw new SAXException("Missing values for attribute matrix");
+        }
+        try {
+          float [][] matrix = new float [][] {
+              {Float.parseFloat(values [0]),
+               Float.parseFloat(values [1]),
+               Float.parseFloat(values [2]),
+               Float.parseFloat(values [3])},
+              {Float.parseFloat(values [4]),
+               Float.parseFloat(values [5]),
+               Float.parseFloat(values [6]),
+               Float.parseFloat(values [7])},
+              {Float.parseFloat(values [8]),
+               Float.parseFloat(values [9]),
+               Float.parseFloat(values [10]),
+               Float.parseFloat(values [11])}};
+          Transformation transformation = new Transformation(
+              attributesMap.get("name"),
+              matrix);
+          this.transformations.add((Transformation)resolveObject(transformation, name, attributesMap));
+        } catch (NumberFormatException ex) {
+          throw new SAXException("Invalid value for attribute matrix", ex);
+        }
+      }
     } else if ("point".equals(name)) {
       this.points.add(new float [] {
           parseFloat(attributesMap, "x"),
@@ -823,6 +875,7 @@ public class HomeXMLHandler extends DefaultHandler {
       environment.setGroundColor(groundColor);
     }
     environment.setGroundTexture(this.textures.get("groundTexture"));
+    environment.setBackgroundImageVisibleOnGround3D("true".equals(attributes.get("backgroundImageVisibleOnGround3D")));
     Integer skyColor = parseOptionalColor(attributes, "skyColor");
     if (skyColor != null) {
       environment.setSkyColor(skyColor);
@@ -889,6 +942,10 @@ public class HomeXMLHandler extends DefaultHandler {
     Integer videoQuality = parseOptionalInteger(attributes, "videoQuality");
     if (videoQuality != null) {
       environment.setVideoQuality(videoQuality);
+    }
+    Float videoSpeed = parseOptionalFloat(attributes, "videoSpeed");
+    if (videoSpeed != null) {
+      environment.setVideoSpeed(videoSpeed);
     }
     Integer videoFrameRate = parseOptionalInteger(attributes, "videoFrameRate");
     if (videoFrameRate != null) {
@@ -1086,7 +1143,7 @@ public class HomeXMLHandler extends DefaultHandler {
       if (cutOutShape == null
           && !"doorOrWindow".equals(elementName)) {
         // Set default cut out shape set on old HomePieceOfFurniture instances with doorOrWindow attribute set to true
-        cutOutShape = "M0,0 v1 h1 v-1 z";
+        cutOutShape = PieceOfFurniture.DEFAULT_CUT_OUT_SHAPE;
       }
       piece = new HomeDoorOrWindow(new CatalogDoorOrWindow(
           catalogId,
@@ -1285,13 +1342,35 @@ public class HomeXMLHandler extends DefaultHandler {
           piece.setShininess(shininess);
         }
       }
+      if (piece.isDeformable()) {
+        if (this.transformations.size() > 0) {
+          piece.setModelTransformations(this.transformations.toArray(new Transformation [this.transformations.size()]));
+        }
+      }
 
       if (piece instanceof HomeLight
           && attributes.get("power") != null) {
         ((HomeLight)piece).setPower(parseFloat(attributes, "power"));
       } else if (piece instanceof HomeDoorOrWindow
                  && "doorOrWindow".equals(elementName)) {
-        ((HomeDoorOrWindow)piece).setBoundToWall(!"false".equals(attributes.get("boundToWall")));
+        HomeDoorOrWindow doorOrWindow = (HomeDoorOrWindow)piece;
+        doorOrWindow.setBoundToWall(!"false".equals(attributes.get("boundToWall")));
+        Float wallWidth = parseOptionalFloat(attributes, "wallWidth");
+        if (wallWidth != null) {
+          doorOrWindow.setWallWidth(wallWidth);
+        }
+        Float wallLeft = parseOptionalFloat(attributes, "wallLeft");
+        if (wallLeft != null) {
+          doorOrWindow.setWallLeft(wallLeft);
+        }
+        Float wallHeight = parseOptionalFloat(attributes, "wallHeight");
+        if (wallHeight != null) {
+          doorOrWindow.setWallHeight(wallHeight);
+        }
+        Float wallTop = parseOptionalFloat(attributes, "wallTop");
+        if (wallTop != null) {
+          doorOrWindow.setWallTop(wallTop);
+        }
       }
     }
   }
@@ -1451,6 +1530,23 @@ public class HomeXMLHandler extends DefaultHandler {
         // Ignore malformed enum constant
       }
     }
+    String dashPattern = attributes.get("dashPattern");
+    if (dashPattern != null) {
+      try {
+        String [] values = dashPattern.split(" ");
+        float [] pattern = new float [values.length];
+        for (int i = 0; i < values.length; i++) {
+          pattern [i] = Float.parseFloat(values [i]);
+        }
+        polyline.setDashPattern(pattern);
+      } catch (NumberFormatException ex) {
+        throw new SAXException("Invalid value for dash pattern", ex);
+      }
+    }
+    Float dashOffset = parseOptionalFloat(attributes, "dashOffset");
+    if (dashOffset != null) {
+      polyline.setDashOffset(dashOffset);
+    }
     String startArrowStyle = attributes.get("startArrowStyle");
     if (startArrowStyle != null) {
       try {
@@ -1466,6 +1562,11 @@ public class HomeXMLHandler extends DefaultHandler {
       } catch (IllegalArgumentException ex) {
         // Ignore malformed enum constant
       }
+    }
+    Float elevation = parseOptionalFloat(attributes, "elevation");
+    if (elevation != null) {
+      polyline.setVisibleIn3D(true);
+      polyline.setElevation(elevation);
     }
     Integer color = parseOptionalColor(attributes, "color");
     if (color != null) {
@@ -1551,10 +1652,20 @@ public class HomeXMLHandler extends DefaultHandler {
    */
   private TextStyle createTextStyle(String elementName,
                                     Map<String, String> attributes) throws SAXException {
+    TextStyle.Alignment alignment = TextStyle.Alignment.CENTER;
+    String alignmentString = attributes.get("alignment");
+    if (alignmentString != null) {
+      try {
+        alignment = TextStyle.Alignment.valueOf(alignmentString);
+      } catch (IllegalArgumentException ex) {
+        // Ignore malformed enum constant
+      }
+    }
     TextStyle textStyle = new TextStyle(attributes.get("fontName"),
         parseFloat(attributes, "fontSize"),
         "true".equals(attributes.get("bold")),
-        "true".equals(attributes.get("italic")));
+        "true".equals(attributes.get("italic")),
+        alignment);
     return (TextStyle)resolveObject(textStyle, elementName, attributes);
   }
 
@@ -1570,6 +1681,12 @@ public class HomeXMLHandler extends DefaultHandler {
                                parseFloat(attributes, "width"),
                                parseFloat(attributes, "height"),
                                attributes.get("creator")),
+        attributes.get("xOffset") != null
+            ? parseFloat(attributes, "xOffset")
+            : 0,
+        attributes.get("yOffset") != null
+            ? parseFloat(attributes, "yOffset")
+            : 0,
         attributes.get("angle") != null
             ? parseFloat(attributes, "angle")
             : 0,

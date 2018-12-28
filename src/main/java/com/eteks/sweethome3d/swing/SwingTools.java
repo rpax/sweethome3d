@@ -19,7 +19,6 @@
  */
 package com.eteks.sweethome3d.swing;
 
-import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
@@ -58,6 +57,7 @@ import java.awt.image.RGBImageFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.security.AccessControlException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
@@ -76,6 +76,7 @@ import javax.imageio.stream.ImageInputStream;
 import javax.jnlp.BasicService;
 import javax.jnlp.ServiceManager;
 import javax.jnlp.UnavailableServiceException;
+import javax.swing.Action;
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
 import javax.swing.ImageIcon;
@@ -101,8 +102,10 @@ import javax.swing.border.AbstractBorder;
 import javax.swing.border.Border;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
+import javax.swing.plaf.basic.BasicLookAndFeel;
 import javax.swing.text.JTextComponent;
 
+import com.eteks.sweethome3d.j3d.ShapeTools;
 import com.eteks.sweethome3d.model.Content;
 import com.eteks.sweethome3d.model.Polyline;
 import com.eteks.sweethome3d.model.TextureImage;
@@ -126,7 +129,7 @@ public class SwingTools {
    * Updates the border of <code>component</code> with an empty border
    * changed to a colored border when it will gain focus.
    * If the <code>component</code> component is the child of a <code>JViewPort</code>
-   * instance this border will be installed on its scroll pane parent. 
+   * instance this border will be installed on its scroll pane parent.
    */
   public static void installFocusBorder(JComponent component) {
     if (unfocusedViewBorder == null) {
@@ -134,7 +137,7 @@ public class SwingTools {
           private Color  topLeftColor;
           private Color  botomRightColor;
           private Insets insets = new Insets(1, 1, 1, 1);
-          
+
           {
             if (OperatingSystem.isMacOSX()) {
               this.topLeftColor = Color.GRAY;
@@ -144,11 +147,11 @@ public class SwingTools {
               this.botomRightColor  = UIManager.getColor("TextField.shadow");
             }
           }
-          
+
           public Insets getBorderInsets(Component c) {
             return this.insets;
           }
-    
+
           public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
             Color previousColor = g.getColor();
             Rectangle rect = getInteriorRectangle(c, x, y, width, height);
@@ -157,22 +160,22 @@ public class SwingTools {
             g.drawLine(rect.x - 1, rect.y - 1, rect.x - 1, rect.y  + rect.height);
             g.setColor(botomRightColor);
             g.drawLine(rect.x, rect.y  + rect.height, rect.x + rect.width, rect.y  + rect.height);
-            g.drawLine(rect.x + rect.width, rect.y, rect.x + rect.width, rect.y  + rect.height); 
+            g.drawLine(rect.x + rect.width, rect.y, rect.x + rect.width, rect.y  + rect.height);
             g.setColor(previousColor);
           }
         };
-      
+
       if (OperatingSystem.isMacOSXLeopardOrSuperior()) {
         unfocusedViewBorder = BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(UIManager.getColor("Panel.background"), 2),
             unfocusedViewInteriorBorder);
         focusedViewBorder = new AbstractBorder() {
             private Insets insets = new Insets(3, 3, 3, 3);
-            
+
             public Insets getBorderInsets(Component c) {
               return this.insets;
             }
-      
+
             public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
               Color previousColor = g.getColor();
               // Paint a gradient paint around component
@@ -218,17 +221,17 @@ public class SwingTools {
               unfocusedViewInteriorBorder);
         } else {
           unfocusedViewBorder = BorderFactory.createCompoundBorder(
-              BorderFactory.createEmptyBorder(1, 1, 1, 1), 
+              BorderFactory.createEmptyBorder(1, 1, 1, 1),
               unfocusedViewInteriorBorder);
         }
         focusedViewBorder = BorderFactory.createLineBorder(UIManager.getColor("textHighlight"), 2);
       }
     }
-    
+
     final JComponent feedbackComponent;
     if (component.getParent() instanceof JViewport
         && component.getParent().getParent() instanceof JScrollPane) {
-      feedbackComponent = (JComponent)component.getParent().getParent(); 
+      feedbackComponent = (JComponent)component.getParent().getParent();
     } else {
       feedbackComponent = component;
     }
@@ -239,7 +242,7 @@ public class SwingTools {
             feedbackComponent.setBorder(unfocusedViewBorder);
           }
         }
-        
+
         public void focusGained(FocusEvent ev) {
           if (feedbackComponent.getBorder() == unfocusedViewBorder) {
             feedbackComponent.setBorder(focusedViewBorder);
@@ -249,7 +252,7 @@ public class SwingTools {
   }
 
   /**
-   * Updates the Swing resource bundles in use from the default Locale and class loader. 
+   * Updates the Swing resource bundles in use from the default Locale and class loader.
    */
   public static void updateSwingResourceLanguage() {
     updateSwingResourceLanguage(Arrays.asList(new ClassLoader [] {SwingTools.class.getClassLoader()}), null);
@@ -278,20 +281,20 @@ public class SwingTools {
       updateSwingResourceBundle("com.sun.java.swing.plaf.gtk.resources.gtk", classLoaders, language);
     } else if (UIManager.getLookAndFeel().getClass().getName().equals("com.sun.java.swing.plaf.motif.MotifLookAndFeel")) {
       updateSwingResourceBundle("com.sun.java.swing.plaf.motif.resources.motif", classLoaders, language);
-    } 
+    }
   }
 
   /**
-   * Updates a Swing resource bundle in use from the current Locale. 
+   * Updates a Swing resource bundle in use from the current Locale.
    */
-  private static void updateSwingResourceBundle(String swingResource, 
+  private static void updateSwingResourceBundle(String swingResource,
                                                 List<ClassLoader> classLoaders,
                                                 String language) {
     ResourceBundle resource;
     try {
-      Locale defaultLocale = language == null 
+      Locale defaultLocale = language == null
           ? Locale.getDefault()
-              : (language.indexOf('_') == -1 
+              : (language.indexOf('_') == -1
               ? new Locale(language)
               : new Locale(language.substring(0, 2), language.substring(3, 5)));
       resource = ResourceBundle.getBundle(swingResource, defaultLocale);
@@ -309,29 +312,29 @@ public class SwingTools {
     } catch (MissingResourceException ex) {
       resource = ResourceBundle.getBundle(swingResource, Locale.ENGLISH);
     }
-    
-    // Update UIManager properties    
+
+    // Update UIManager properties
     final String textAndMnemonicSuffix = ".textAndMnemonic";
     for (Enumeration<?> it = resource.getKeys(); it.hasMoreElements(); ) {
       String key = (String)it.nextElement();
       if (key.endsWith(textAndMnemonicSuffix)) {
         String value = resource.getString(key);
         UIManager.put(key, value);
-        // Decompose property value like in javax.swing.UIDefaults.TextAndMnemonicHashMap because  
-        // UIDefaults#getResourceCache(Locale) doesn't store the correct localized value for non English resources 
-        // (.textAndMnemonic suffix appeared with Java 1.7) 
+        // Decompose property value like in javax.swing.UIDefaults.TextAndMnemonicHashMap because
+        // UIDefaults#getResourceCache(Locale) doesn't store the correct localized value for non English resources
+        // (.textAndMnemonic suffix appeared with Java 1.7)
         String text = value.replace("&", "");
         String keyPrefix = key.substring(0, key.length() - textAndMnemonicSuffix.length());
         UIManager.put(keyPrefix + "NameText", text);
-        UIManager.put(keyPrefix + "Text", text); 
+        UIManager.put(keyPrefix + "Text", text);
         int index = value.indexOf('&');
         if (index >= 0 && index < value.length() - 1) {
-          UIManager.put(key.replace(textAndMnemonicSuffix, "Mnemonic"), 
+          UIManager.put(key.replace(textAndMnemonicSuffix, "Mnemonic"),
               String.valueOf(Character.toUpperCase(value.charAt(index + 1))));
         }
       }
     }
-    // Store other properties coming from read resource and give them a higher priority if already set in previous loop 
+    // Store other properties coming from read resource and give them a higher priority if already set in previous loop
     for (Enumeration<?> it = resource.getKeys(); it.hasMoreElements(); ) {
       String key = (String)it.nextElement();
       if (!key.endsWith(textAndMnemonicSuffix)) {
@@ -339,16 +342,16 @@ public class SwingTools {
       }
     }
   }
-  
+
   /**
    * Returns a localized text for menus items and labels depending on the system.
    */
   public static String getLocalizedLabelText(UserPreferences preferences,
                                              Class<?> resourceClass,
-                                             String   resourceKey, 
+                                             String   resourceKey,
                                              Object ... resourceParameters) {
     String localizedString = preferences.getLocalizedString(resourceClass, resourceKey, resourceParameters);
-    // Under Mac OS X, remove bracketed upper case roman letter used in oriental languages to indicate mnemonic 
+    // Under Mac OS X, remove bracketed upper case roman letter used in oriental languages to indicate mnemonic
     String language = Locale.getDefault().getLanguage();
     if (OperatingSystem.isMacOSX()
         && (language.equals(Locale.CHINESE.getLanguage())
@@ -361,7 +364,7 @@ public class SwingTools {
         if (openingBracketIndex == closingBracketIndex - 2) {
           char c = localizedString.charAt(openingBracketIndex + 1);
           if (c >= 'A' && c <= 'Z') {
-            localizedString = localizedString.substring(0, openingBracketIndex) 
+            localizedString = localizedString.substring(0, openingBracketIndex)
                 + localizedString.substring(closingBracketIndex + 1);
           }
         }
@@ -369,13 +372,13 @@ public class SwingTools {
     }
     return localizedString;
   }
-  
+
   /**
    * Adds focus and mouse listeners to the given <code>textComponent</code> that will
    * select all its text when it gains focus by transfer.
    */
   public static void addAutoSelectionOnFocusGain(final JTextComponent textComponent) {
-    // A focus and mouse listener able to select text field characters 
+    // A focus and mouse listener able to select text field characters
     // when it gains focus after a focus transfer
     class SelectionOnFocusManager extends MouseAdapter implements FocusListener {
       private boolean mousePressedInTextField = false;
@@ -387,13 +390,13 @@ public class SwingTools {
         this.mousePressedInTextField = true;
         this.selectionStartBeforeFocusLost = -1;
       }
-      
+
       public void focusLost(FocusEvent ev) {
         if (ev.getOppositeComponent() == null
-            || SwingUtilities.getWindowAncestor(ev.getOppositeComponent()) 
+            || SwingUtilities.getWindowAncestor(ev.getOppositeComponent())
                 != SwingUtilities.getWindowAncestor(textComponent)) {
-          // Keep selection indices when focus on text field is transfered 
-          // to an other window 
+          // Keep selection indices when focus on text field is transfered
+          // to an other window
           this.selectionStartBeforeFocusLost = textComponent.getSelectionStart();
           this.selectionEndBeforeFocusLost = textComponent.getSelectionEnd();
         } else {
@@ -410,9 +413,9 @@ public class SwingTools {
                 textComponent.setSelectionEnd(selectionEndBeforeFocusLost);
               }
             });
-        } else if (!this.mousePressedInTextField 
+        } else if (!this.mousePressedInTextField
                    && ev.getOppositeComponent() != null
-                   && SwingUtilities.getWindowAncestor(ev.getOppositeComponent()) 
+                   && SwingUtilities.getWindowAncestor(ev.getOppositeComponent())
                        == SwingUtilities.getWindowAncestor(textComponent)) {
           EventQueue.invokeLater(new Runnable() {
               public void run() {
@@ -424,14 +427,14 @@ public class SwingTools {
         this.mousePressedInTextField = false;
       }
     };
-    
+
     SelectionOnFocusManager selectionOnFocusManager = new SelectionOnFocusManager();
     textComponent.addFocusListener(selectionOnFocusManager);
     textComponent.addMouseListener(selectionOnFocusManager);
   }
-  
+
   /**
-   * Forces radio buttons to be deselected even if they belong to a button group. 
+   * Forces radio buttons to be deselected even if they belong to a button group.
    */
   public static void deselectAllRadioButtons(JRadioButton ... radioButtons) {
     for (JRadioButton radioButton : radioButtons) {
@@ -441,17 +444,17 @@ public class SwingTools {
         radioButton.setSelected(false);
         group.add(radioButton);
       }
-    }    
+    }
   }
-  
+
   /**
-   * Displays <code>messageComponent</code> in a modal dialog box, giving focus to one of its components. 
+   * Displays <code>messageComponent</code> in a modal dialog box, giving focus to one of its components.
    */
   public static int showConfirmDialog(JComponent parentComponent,
                                       JComponent messageComponent,
                                       String title,
                                       final JComponent focusedComponent) {
-    JOptionPane optionPane = new JOptionPane(messageComponent, 
+    JOptionPane optionPane = new JOptionPane(messageComponent,
         JOptionPane.PLAIN_MESSAGE, JOptionPane.OK_CANCEL_OPTION);
     parentComponent = SwingUtilities.getRootPane(parentComponent);
     if (parentComponent != null) {
@@ -469,7 +472,7 @@ public class SwingTools {
         });
     }
     dialog.setVisible(true);
-    
+
     dialog.dispose();
     Object value = optionPane.getValue();
     if (value instanceof Integer) {
@@ -484,7 +487,7 @@ public class SwingTools {
    */
   public static void requestFocusInWindow(final JComponent focusedComponent) {
     if (!focusedComponent.requestFocusInWindow()) {
-      // Prefer to call requestFocusInWindow in a timer with a small delay   
+      // Prefer to call requestFocusInWindow in a timer with a small delay
       // than calling it with EnventQueue#invokeLater to ensure it always works
       new Timer(50, new ActionListener() {
           public void actionPerformed(ActionEvent ev) {
@@ -494,9 +497,9 @@ public class SwingTools {
         }).start();
     }
   }
-  
+
   /**
-   * Displays <code>messageComponent</code> in a modal dialog box, giving focus to one of its components. 
+   * Displays <code>messageComponent</code> in a modal dialog box, giving focus to one of its components.
    */
   public static void showMessageDialog(JComponent parentComponent,
                                        JComponent messageComponent,
@@ -519,28 +522,46 @@ public class SwingTools {
           }
         });
     }
-    dialog.setVisible(true);    
+    dialog.setVisible(true);
     dialog.dispose();
   }
 
+  /**
+   * Displays message in a dialog box, possibly adjusting font size if required.
+   */
+  public static int showOptionDialog(Component parentComponent,
+                                     String message, String title,
+                                     int optionType, int messageType,
+                                     Object[] options, Object initialValue) {
+   if (SwingTools.getResolutionScale() > 1
+       && message.indexOf("<font size=\"-2\">") != -1) {
+     Font font = UIManager.getFont("OptionPane.font");
+     if (font != null) {
+       message = message.replace("<font size=\"-2\">", "<font size=\"" + Math.round(font.getSize() / 5f) + "\">");
+     }
+   }
+   return JOptionPane.showOptionDialog(parentComponent, message, title, optionType,
+       messageType, null, options, initialValue);
+ }
+
   private static Map<TextureImage, BufferedImage> patternImages;
-  
+
   /**
    * Returns the image matching a given pattern.
    */
   public static BufferedImage getPatternImage(TextureImage pattern,
-                                              Color backgroundColor, 
+                                              Color backgroundColor,
                                               Color foregroundColor) {
     if (patternImages == null) {
       patternImages = new HashMap<TextureImage, BufferedImage>();
     }
-    BufferedImage image = new BufferedImage(
-        (int)pattern.getWidth(), (int)pattern.getHeight(), BufferedImage.TYPE_INT_RGB);
+    BufferedImage image = new BufferedImage((int)pattern.getWidth(),
+        (int)pattern.getHeight(), BufferedImage.TYPE_INT_RGB);
     Graphics2D imageGraphics = (Graphics2D)image.getGraphics();
     imageGraphics.setColor(backgroundColor);
     imageGraphics.fillRect(0, 0, image.getWidth(), image.getHeight());
     // Get pattern image from cache
-    BufferedImage patternImage = patternImages.get(pattern); 
+    BufferedImage patternImage = patternImages.get(pattern);
     if (patternImage == null) {
       try {
         InputStream imageInput = pattern.getImage().openStream();
@@ -569,7 +590,7 @@ public class SwingTools {
     imageGraphics.dispose();
     return image;
   }
-  
+
   /**
    * Returns the border of a component where a user may drop objects.
    */
@@ -579,30 +600,37 @@ public class SwingTools {
       border = UIManager.getBorder("InsetBorder.aquaVariant");
     }
     if (border == null) {
-      border = BorderFactory.createLoweredBevelBorder(); 
+      border = BorderFactory.createLoweredBevelBorder();
     }
     return border;
   }
-  
+
   /**
-   * Displays the image referenced by <code>imageUrl</code> in an AWT window 
+   * Displays the image referenced by <code>imageUrl</code> in an AWT window
    * disposed once an instance of <code>JFrame</code> or <code>JDialog</code> is displayed.
    * If the <code>imageUrl</code> is incorrect, nothing happens.
    */
   public static void showSplashScreenWindow(URL imageUrl) {
     try {
       final BufferedImage image = ImageIO.read(imageUrl);
+      // Try to find an image scale without getResolutionScale()
+      // because look and feel is probably not set yet
+      Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+      final float scale = OperatingSystem.isMacOSX()
+          ? 1f
+          : (float)Math.min(2, Math.max(1, Math.min(screenSize.getWidth() / 5 / image.getWidth(), screenSize.getHeight() / 5 / image.getHeight())));
       final Window splashScreenWindow = new Window(new Frame()) {
           @Override
           public void paint(Graphics g) {
+            ((Graphics2D)g).scale(scale, scale);
             g.drawImage(image, 0, 0, this);
           }
         };
-        
-      splashScreenWindow.setSize(image.getWidth(), image.getHeight());
+
+      splashScreenWindow.setSize((int)(image.getWidth() * scale), (int)(image.getHeight() * scale));
       splashScreenWindow.setLocationRelativeTo(null);
       splashScreenWindow.setVisible(true);
-          
+
       Executors.newSingleThreadExecutor().execute(new Runnable() {
           public void run() {
             try {
@@ -646,14 +674,14 @@ public class SwingTools {
       // Ignore splash screen
     }
   }
-  
+
   /**
    * Returns a new panel with a border and the given <code>title</code>
    */
   public static JPanel createTitledPanel(String title) {
     JPanel titledPanel = new JPanel(new GridBagLayout());
     Border panelBorder = BorderFactory.createTitledBorder(title);
-    // For systems different from Mac OS X 10.5, add an empty border 
+    // For systems different from Mac OS X 10.5, add an empty border
     if (!OperatingSystem.isMacOSXLeopardOrSuperior()) {
       panelBorder = BorderFactory.createCompoundBorder(
           panelBorder, BorderFactory.createEmptyBorder(0, 2, 2, 2));
@@ -662,12 +690,12 @@ public class SwingTools {
       panelBorder = BorderFactory.createCompoundBorder(
           panelBorder, BorderFactory.createEmptyBorder(10, 0, 0, 0));
     }
-    titledPanel.setBorder(panelBorder);    
+    titledPanel.setBorder(panelBorder);
     return titledPanel;
   }
 
   /**
-   * Returns a scroll pane containing the given <code>component</code> 
+   * Returns a scroll pane containing the given <code>component</code>
    * that always displays scroll bars under Mac OS X.
    */
   public static JScrollPane createScrollPane(JComponent component) {
@@ -680,7 +708,7 @@ public class SwingTools {
     scrollPane.setMinimumSize(new Dimension());
     return scrollPane;
   }
-  
+
   /**
    * Returns a scroll bar adjustment listener bound to the given <code>scrollPane</code> view
    * that updates view tool tip when its vertical scroll bar is adjusted.
@@ -689,12 +717,12 @@ public class SwingTools {
     return new AdjustmentListener() {
         public void adjustmentValueChanged(AdjustmentEvent ev) {
           Point screenLocation = MouseInfo.getPointerInfo().getLocation();
-          Point point = new Point(screenLocation); 
+          Point point = new Point(screenLocation);
           Component view = scrollPane.getViewport().getView();
           SwingUtilities.convertPointFromScreen(point, view);
           if (scrollPane.isShowing()
               && scrollPane.getViewport().getViewRect().contains(point)) {
-            MouseEvent mouseEvent = new MouseEvent(view, MouseEvent.MOUSE_MOVED, System.currentTimeMillis(), 
+            MouseEvent mouseEvent = new MouseEvent(view, MouseEvent.MOUSE_MOVED, System.currentTimeMillis(),
                 0, point.x, point.y, 0, false, MouseEvent.NOBUTTON);
             if (isToolTipShowing()) {
               ToolTipManager.sharedInstance().mouseMoved(mouseEvent);
@@ -707,7 +735,7 @@ public class SwingTools {
   /**
    * Returns <code>true</code> if a tool tip is showing.
    */
-  private static boolean isToolTipShowing() {
+  public static boolean isToolTipShowing() {
     for (Frame frame : Frame.getFrames()) {
       if (isToolTipShowing(frame)) {
         return true;
@@ -726,12 +754,12 @@ public class SwingTools {
     }
     for (int i = 0; i < container.getComponentCount(); i++) {
       Component child = container.getComponent(i);
-      if (child instanceof JToolTip 
+      if (child instanceof JToolTip
             && child.isShowing()
           || child instanceof Container
             && isToolTipShowing((Container)child)) {
         return true;
-      }            
+      }
     }
     return false;
   }
@@ -742,12 +770,12 @@ public class SwingTools {
   public static void hideDisabledMenuItems(JPopupMenu popupMenu) {
     popupMenu.addPopupMenuListener(new MenuItemsVisibilityListener());
   }
-  
+
   /**
    * A popup menu listener that displays only enabled menu items.
    */
   private static class MenuItemsVisibilityListener implements PopupMenuListener {
-    public void popupMenuWillBecomeVisible(PopupMenuEvent ev) {        
+    public void popupMenuWillBecomeVisible(PopupMenuEvent ev) {
       JPopupMenu popupMenu = (JPopupMenu)ev.getSource();
       hideDisabledMenuItems(popupMenu);
       // Ensure at least one item is visible
@@ -757,8 +785,9 @@ public class SwingTools {
           allItemsInvisible = false;
           break;
         }
-      }  
-      if (allItemsInvisible) {
+      }
+      if (allItemsInvisible
+          && popupMenu.getComponentCount() > 0) {
         popupMenu.getComponent(0).setVisible(true);
       }
     }
@@ -776,7 +805,9 @@ public class SwingTools {
             hideDisabledMenuItems(((JMenu)component).getPopupMenu());
           }
         } else if (component instanceof JMenuItem) {
-          component.setVisible(component.isEnabled());
+          Action action = ((JMenuItem)component).getAction();
+          component.setVisible(component.isEnabled()
+              && (action == null || !Boolean.FALSE.equals(action.getValue(ResourceAction.VISIBLE))));
         }
       }
       hideUselessSeparators(popupMenu);
@@ -794,14 +825,14 @@ public class SwingTools {
           if (component.isVisible()) {
             allMenuItemsInvisible = false;
           }
-        } else if (component instanceof JSeparator) {          
+        } else if (component instanceof JSeparator) {
           component.setVisible(!allMenuItemsInvisible);
           if (!allMenuItemsInvisible) {
             lastVisibleSeparatorIndex = i;
           }
           allMenuItemsInvisible = true;
         }
-      }  
+      }
       if (lastVisibleSeparatorIndex != -1 && allMenuItemsInvisible) {
         // Check if last separator is the first visible component
         boolean allComponentsBeforeLastVisibleSeparatorInvisible = true;
@@ -818,14 +849,14 @@ public class SwingTools {
             break;
           }
         }
-        
+
         popupMenu.getComponent(lastVisibleSeparatorIndex).setVisible(
             !allComponentsBeforeLastVisibleSeparatorInvisible && !allComponentsAfterLastVisibleSeparatorInvisible);
       }
     }
 
     /**
-     * Returns <code>true</code> if the given <code>menu</code> contains 
+     * Returns <code>true</code> if the given <code>menu</code> contains
      * at least one enabled menu item.
      */
     private boolean containsEnabledItems(JMenu menu) {
@@ -847,7 +878,7 @@ public class SwingTools {
     public void popupMenuWillBecomeInvisible(PopupMenuEvent ev) {
     }
   }
-  
+
   /**
    * Attempts to display the given <code>url</code> in a browser and returns <code>true</code>
    * if it was done successfully.
@@ -855,18 +886,18 @@ public class SwingTools {
   public static boolean showDocumentInBrowser(URL url) {
     return BrowserSupport.showDocumentInBrowser(url);
   }
-  
+
   /**
-   * Separated static class to be able to exclude JNLP library from classpath. 
+   * Separated static class to be able to exclude JNLP library from classpath.
    */
   private static class BrowserSupport {
     public static boolean showDocumentInBrowser(URL url) {
-      try { 
-        // Lookup the javax.jnlp.BasicService object 
-        BasicService basicService = (BasicService)ServiceManager.lookup("javax.jnlp.BasicService"); 
+      try {
+        // Lookup the javax.jnlp.BasicService object
+        BasicService basicService = (BasicService)ServiceManager.lookup("javax.jnlp.BasicService");
         // Ignore the basic service, if it doesn't support web browser
         if (basicService.isWebBrowserSupported()) {
-          return basicService.showDocument(url); 
+          return basicService.showDocument(url);
         }
       } catch (UnavailableServiceException ex) {
         // Too bad : service is unavailable
@@ -883,7 +914,7 @@ public class SwingTools {
    */
   public static <T extends Component> List<T> findChildren(JComponent parent, Class<T> childrenClass) {
     List<T> children = new ArrayList<T>();
-    findChildren(parent, childrenClass, children); 
+    findChildren(parent, childrenClass, children);
     return children;
   }
 
@@ -894,10 +925,10 @@ public class SwingTools {
         children.add((T)child);
       } else if (child instanceof JComponent) {
         findChildren((JComponent)child, childrenClass, children);
-      }            
+      }
     }
   }
-  
+
   /**
    * Returns <code>true</code> if the given rectangle is fully visible at screen.
    */
@@ -909,11 +940,11 @@ public class SwingTools {
     }
     return devicesArea.contains(rectangle);
   }
-  
+
   /**
    * Returns a new custom cursor.
    */
-  public static Cursor createCustomCursor(URL smallCursorImageUrl, 
+  public static Cursor createCustomCursor(URL smallCursorImageUrl,
                                           URL largeCursorImageUrl,
                                           float xCursorHotSpot,
                                           float yCursorHotSpot,
@@ -925,11 +956,11 @@ public class SwingTools {
     // Retrieve system cursor size
     Dimension cursorSize = Toolkit.getDefaultToolkit().getBestCursorSize(16, 16);
     URL cursorImageResource;
-    // If returned cursor size is 0, system doesn't support custom cursor  
-    if (cursorSize.width == 0) {      
-      return defaultCursor;      
+    // If returned cursor size is 0, system doesn't support custom cursor
+    if (cursorSize.width == 0) {
+      return defaultCursor;
     } else {
-      // Use a different cursor image depending on system cursor size 
+      // Use a different cursor image depending on system cursor size
       if (cursorSize.width > 16) {
         cursorImageResource = largeCursorImageUrl;
       } else {
@@ -939,8 +970,8 @@ public class SwingTools {
         // Read cursor image
         BufferedImage cursorImage = ImageIO.read(cursorImageResource);
         // Create custom cursor from image
-        return Toolkit.getDefaultToolkit().createCustomCursor(cursorImage, 
-            new Point(Math.min(cursorSize.width - 1, Math.round(cursorSize.width * xCursorHotSpot)), 
+        return Toolkit.getDefaultToolkit().createCustomCursor(cursorImage,
+            new Point(Math.min(cursorSize.width - 1, Math.round(cursorSize.width * xCursorHotSpot)),
                       Math.min(cursorSize.height - 1, Math.round(cursorSize.height * yCursorHotSpot))),
             cursorName);
       } catch (IOException ex) {
@@ -957,11 +988,11 @@ public class SwingTools {
     InputStream in = null;
     try {
       in = image.openStream();
-      ImageInputStream iis = ImageIO.createImageInputStream(in);
-      Iterator<ImageReader> it = ImageIO.getImageReaders(iis);
+      ImageInputStream imageInputStream = ImageIO.createImageInputStream(in);
+      Iterator<ImageReader> it = ImageIO.getImageReaders(imageInputStream);
       if (it.hasNext()) {
         ImageReader reader = (ImageReader)it.next();
-        reader.setInput(iis);
+        reader.setInput(imageInputStream);
         int imageWidth = reader.getWidth(reader.getMinIndex());
         int imageHeight = reader.getHeight(reader.getMinIndex());
         reader.dispose();
@@ -974,114 +1005,102 @@ public class SwingTools {
       }
     }
   }
-  
+
   /**
    * Returns the line stroke matching the given line styles.
    */
-  public static Stroke getStroke(float thickness, 
+  public static Stroke getStroke(float thickness,
                                  Polyline.CapStyle capStyle,
-                                 Polyline.JoinStyle joinStyle, 
+                                 Polyline.JoinStyle joinStyle,
                                  Polyline.DashStyle dashStyle) {
-    int strokeCapStyle;
-    switch (capStyle) {
-      case ROUND :
-        strokeCapStyle = BasicStroke.CAP_ROUND;
-        break;
-      case SQUARE :
-        strokeCapStyle = BasicStroke.CAP_SQUARE;
-        break;
-      default:
-        strokeCapStyle = BasicStroke.CAP_BUTT;
-        break;
-    }
-    
-    int strokeJoinStyle;
-    switch (joinStyle) {
-      case ROUND :
-      case CURVED :
-        strokeJoinStyle = BasicStroke.JOIN_ROUND;
-        break;
-      case BEVEL :
-        strokeJoinStyle = BasicStroke.JOIN_BEVEL;
-        break;
-      default:
-        strokeJoinStyle = BasicStroke.JOIN_MITER;
-        break;
-    }
-    
-    float [] strokeDashes;
-    switch (dashStyle) {
-      case DOT :
-        strokeDashes = new float [] {thickness, thickness}; 
-        break;
-      case DASH :
-        strokeDashes = new float [] {thickness * 4, thickness * 2}; 
-        break;
-      case DASH_DOT :
-        strokeDashes = new float [] {thickness * 8, thickness * 2, thickness * 2, thickness * 2};
-        break;
-      case DASH_DOT_DOT :
-        strokeDashes = new float [] {thickness * 8, thickness * 2, thickness * 2, thickness * 2, thickness * 2, thickness * 2};
-        break;
-      default :
-        strokeDashes = null;
-        break;
-    }
-    
-    return new BasicStroke(thickness, strokeCapStyle, strokeJoinStyle, 10, strokeDashes, 0);
+    return ShapeTools.getStroke(thickness, capStyle, joinStyle, dashStyle.getDashPattern(), 0);
   }
+
+  private static Float defaultResolutionScale;
 
   /**
    * Updates Swing components default size according to resolution scale.
    */
   static void updateComponentDefaults() {
-    float resolutionScale = getResolutionScale();
-    if (resolutionScale != 1) {
-      Font buttonFont = updateComponentFontSize("Button.font", resolutionScale);
-      updateComponentFontSize("ToggleButton.font", resolutionScale);
-      updateComponentFontSize("RadioButton.font", resolutionScale);
-      updateComponentFontSize("CheckBox.font", resolutionScale);
-      updateComponentFontSize("ColorChooser.font", resolutionScale);
-      updateComponentFontSize("ComboBox.font", resolutionScale);
-      updateComponentFontSize("InternalFrame.titleFont", resolutionScale);
-      Font labelFont = updateComponentFontSize("Label.font", resolutionScale);
-      updateComponentFontSize("List.font", resolutionScale);
-      updateComponentFontSize("MenuBar.font", resolutionScale);
-      updateComponentFontSize("MenuItem.font", resolutionScale);
-      updateComponentFontSize("MenuItem.acceleratorFont", resolutionScale);
-      updateComponentFontSize("RadioButtonMenuItem.font", resolutionScale);
-      updateComponentFontSize("RadioButtonMenuItem.acceleratorFont", resolutionScale);
-      updateComponentFontSize("CheckBoxMenuItem.font", resolutionScale);
-      updateComponentFontSize("CheckBoxMenuItem.acceleratorFont", resolutionScale);
-      updateComponentFontSize("Menu.font", resolutionScale);
-      updateComponentFontSize("Menu.acceleratorFont", resolutionScale);
-      updateComponentFontSize("PopupMenu.font", resolutionScale);
-      updateComponentFontSize("OptionPane.font", resolutionScale);
-      updateComponentFontSize("Panel.font", resolutionScale);
-      updateComponentFontSize("ProgressBar.font", resolutionScale);
-      updateComponentFontSize("ScrollPane.font", resolutionScale);
-      updateComponentFontSize("Viewport.font", resolutionScale);
-      updateComponentFontSize("Slider.font", resolutionScale);
-      updateComponentFontSize("Spinner.font", resolutionScale);
-      updateComponentFontSize("Table.font", resolutionScale);
-      updateComponentFontSize("TabbedPane.font", resolutionScale);
-      updateComponentFontSize("TableHeader.font", resolutionScale);
-      updateComponentFontSize("TextField.font", resolutionScale);
-      updateComponentFontSize("FormattedTextField.font", resolutionScale);
-      updateComponentFontSize("PasswordField.font", resolutionScale);
-      updateComponentFontSize("TextArea.font", resolutionScale);
-      updateComponentFontSize("EditorPane.font", resolutionScale);
-      updateComponentFontSize("TitledBorder.font", resolutionScale);
-      updateComponentFontSize("ToolBar.font", resolutionScale);
-      updateComponentFontSize("ToolTip.font", resolutionScale);
-      updateComponentFontSize("Tree.font", resolutionScale);
-      UIManager.put("OptionPane.messageFont", labelFont);
-      UIManager.put("OptionPane.buttonFont", buttonFont);
-      int dividerSize = UIManager.getInt("SplitPane.dividerSize");
-      if (dividerSize != 0) {
-        UIManager.put("SplitPane.dividerSize", Math.round(dividerSize * resolutionScale));
+    if (defaultResolutionScale == null) {
+      try {
+        defaultResolutionScale = 1f;
+        if ((OperatingSystem.isLinux()
+              || OperatingSystem.isWindows() && !OperatingSystem.isJavaVersionGreaterOrEqual("1.9"))
+            && UIManager.getLookAndFeel().getClass().isAssignableFrom(Class.forName(UIManager.getSystemLookAndFeelClassName()))) {
+          int defaultPanelFontSize = new BasicLookAndFeel() {
+              public String getDescription() {
+                return null;
+              }
+
+              public String getID() {
+                return null;
+              }
+
+              public String getName() {
+                return null;
+              }
+
+              public boolean isNativeLookAndFeel() {
+                return false;
+              }
+
+              public boolean isSupportedLookAndFeel() {
+                return false;
+              }
+            }.getDefaults().getFont("Panel.font").getSize();
+          // Try to guess current resolution scale by comparing default font size with the one of the look and feel
+          defaultResolutionScale = (float)UIManager.getFont("Panel.font").getSize() / defaultPanelFontSize;
+        }
+      } catch (ClassNotFoundException ex) {
+        // Issue with LAF classes
       }
     }
+
+    float userResolutionScale = getUserResolutionScale();
+    if (userResolutionScale != 1) {
+      Font buttonFont = updateComponentFontSize("Button.font", userResolutionScale);
+      updateComponentFontSize("ToggleButton.font", userResolutionScale);
+      updateComponentFontSize("RadioButton.font", userResolutionScale);
+      updateComponentFontSize("CheckBox.font", userResolutionScale);
+      updateComponentFontSize("ColorChooser.font", userResolutionScale);
+      updateComponentFontSize("ComboBox.font", userResolutionScale);
+      updateComponentFontSize("InternalFrame.titleFont", userResolutionScale);
+      Font labelFont = updateComponentFontSize("Label.font", userResolutionScale);
+      updateComponentFontSize("List.font", userResolutionScale);
+      updateComponentFontSize("MenuBar.font", userResolutionScale);
+      updateComponentFontSize("MenuItem.font", userResolutionScale);
+      updateComponentFontSize("MenuItem.acceleratorFont", userResolutionScale);
+      updateComponentFontSize("RadioButtonMenuItem.font", userResolutionScale);
+      updateComponentFontSize("RadioButtonMenuItem.acceleratorFont", userResolutionScale);
+      updateComponentFontSize("CheckBoxMenuItem.font", userResolutionScale);
+      updateComponentFontSize("CheckBoxMenuItem.acceleratorFont", userResolutionScale);
+      updateComponentFontSize("Menu.font", userResolutionScale);
+      updateComponentFontSize("Menu.acceleratorFont", userResolutionScale);
+      updateComponentFontSize("PopupMenu.font", userResolutionScale);
+      updateComponentFontSize("OptionPane.font", userResolutionScale);
+      updateComponentFontSize("Panel.font", userResolutionScale);
+      updateComponentFontSize("ProgressBar.font", userResolutionScale);
+      updateComponentFontSize("ScrollPane.font", userResolutionScale);
+      updateComponentFontSize("Viewport.font", userResolutionScale);
+      updateComponentFontSize("Slider.font", userResolutionScale);
+      updateComponentFontSize("Spinner.font", userResolutionScale);
+      updateComponentFontSize("Table.font", userResolutionScale);
+      updateComponentFontSize("TabbedPane.font", userResolutionScale);
+      updateComponentFontSize("TableHeader.font", userResolutionScale);
+      updateComponentFontSize("TextField.font", userResolutionScale);
+      updateComponentFontSize("FormattedTextField.font", userResolutionScale);
+      updateComponentFontSize("PasswordField.font", userResolutionScale);
+      updateComponentFontSize("TextArea.font", userResolutionScale);
+      updateComponentFontSize("EditorPane.font", userResolutionScale);
+      updateComponentFontSize("TitledBorder.font", userResolutionScale);
+      updateComponentFontSize("ToolBar.font", userResolutionScale);
+      updateComponentFontSize("ToolTip.font", userResolutionScale);
+      updateComponentFontSize("Tree.font", userResolutionScale);
+      UIManager.put("OptionPane.messageFont", labelFont);
+      UIManager.put("OptionPane.buttonFont", buttonFont);
+    }
+    updateComponentSize("SplitPane.dividerSize", getResolutionScale());
   }
 
   private static Font updateComponentFontSize(String fontKey, float resolutionScale) {
@@ -1092,23 +1111,44 @@ public class SwingTools {
     }
     return font;
   }
-  
+
+  private static int updateComponentSize(String sizeKey, float resolutionScale) {
+    int size = UIManager.getInt(sizeKey);
+    if (size != 0) {
+      size = Math.round(size * resolutionScale);
+      UIManager.put(sizeKey, size);
+    }
+    return size;
+  }
+
   /**
    * Returns a scale factor used to adapt user interface items to screen resolution.
    */
   public static float getResolutionScale() {
-    String resolutionScaleProperty = System.getProperty("com.eteks.sweethome3d.resolutionScale");
-    if (resolutionScaleProperty != null) {
-      try {
+    float defaultResolutionScale = SwingTools.defaultResolutionScale != null
+        ? SwingTools.defaultResolutionScale
+        : 1f;
+    return defaultResolutionScale * getUserResolutionScale();
+  }
+
+  /**
+   * Returns an additional user scale factor for the user interface items.
+   */
+  private static float getUserResolutionScale() {
+    try {
+      String resolutionScaleProperty = System.getProperty("com.eteks.sweethome3d.resolutionScale");
+      if (resolutionScaleProperty != null) {
         return Float.parseFloat(resolutionScaleProperty.trim());
-      } catch (NumberFormatException ex) {
-        // Ignore resolution
+      } else {
+
       }
+    } catch (AccessControlException ex) {
+    } catch (NumberFormatException ex) {
+      // Ignore resolution
     }
-    
     return 1f;
   }
-  
+
   /**
    * Returns an image icon scaled according to the value returned by {@link #getResolutionScale()}.
    */
@@ -1119,7 +1159,7 @@ public class SwingTools {
     } else {
       try {
         BufferedImage image = ImageIO.read(imageUrl);
-        Image scaledImage = image.getScaledInstance(Math.round(image.getWidth() * resolutionScale), 
+        Image scaledImage = image.getScaledInstance(Math.round(image.getWidth() * resolutionScale),
             Math.round(image.getHeight() * resolutionScale), Image.SCALE_SMOOTH);
         return new ImageIcon(scaledImage);
       } catch (IOException ex) {

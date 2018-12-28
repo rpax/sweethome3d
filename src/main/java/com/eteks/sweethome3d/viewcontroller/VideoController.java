@@ -37,28 +37,29 @@ import com.eteks.sweethome3d.model.UserPreferences;
  */
 public class VideoController implements Controller {
   /**
-   * The properties that may be edited by the view associated to this controller. 
+   * The properties that may be edited by the view associated to this controller.
    */
-  public enum Property {ASPECT_RATIO, FRAME_RATE, WIDTH, HEIGHT, QUALITY, CAMERA_PATH, TIME, CEILING_LIGHT_COLOR}
-  
+  public enum Property {ASPECT_RATIO, FRAME_RATE, WIDTH, HEIGHT, QUALITY, SPEED, CAMERA_PATH, TIME, CEILING_LIGHT_COLOR}
+
   private final Home                  home;
   private final UserPreferences       preferences;
   private final ViewFactory           viewFactory;
   private final ContentManager        contentManager;
   private final PropertyChangeSupport propertyChangeSupport;
   private DialogView                  videoView;
-  
+
   private AspectRatio                 aspectRatio;
   private int                         frameRate;
   private int                         width;
   private int                         height;
   private int                         quality;
+  private float                       speed;
   private List<Camera>                cameraPath;
   private long                        time;
   private int                         ceilingLightColor;
 
   public VideoController(Home home,
-                         UserPreferences preferences, 
+                         UserPreferences preferences,
                          ViewFactory viewFactory,
                          ContentManager contentManager) {
     this.home = home;
@@ -66,22 +67,22 @@ public class VideoController implements Controller {
     this.viewFactory = viewFactory;
     this.contentManager = contentManager;
     this.propertyChangeSupport = new PropertyChangeSupport(this);
-    
+
     updateProperties();
     home.getEnvironment().addPropertyChangeListener(HomeEnvironment.Property.CEILING_LIGHT_COLOR, new HomeEnvironmentChangeListener(this));
   }
 
   /**
-   * Home environment listener that updates properties. This listener is bound to this controller 
-   * with a weak reference to avoid strong link between home and this controller.  
+   * Home environment listener that updates properties. This listener is bound to this controller
+   * with a weak reference to avoid strong link between home and this controller.
    */
   private static class HomeEnvironmentChangeListener implements PropertyChangeListener {
     private WeakReference<VideoController> videoController;
-    
+
     public HomeEnvironmentChangeListener(VideoController videoController) {
       this.videoController = new WeakReference<VideoController>(videoController);
     }
-    
+
     public void propertyChange(PropertyChangeEvent ev) {
       // If controller was garbage collected, remove this listener from home
       final VideoController controller = this.videoController.get();
@@ -137,19 +138,20 @@ public class VideoController implements Controller {
    */
   protected void updateProperties() {
     HomeEnvironment homeEnvironment = this.home.getEnvironment();
-    setAspectRatio(homeEnvironment.getVideoAspectRatio());
     setFrameRate(homeEnvironment.getVideoFrameRate());
     setWidth(homeEnvironment.getVideoWidth(), false);
     setHeight(homeEnvironment.getVideoHeight(), false);
+    setAspectRatio(homeEnvironment.getVideoAspectRatio());
     setQuality(homeEnvironment.getVideoQuality());
+    setSpeed(homeEnvironment.getVideoSpeed());
     List<Camera> videoCameraPath = homeEnvironment.getVideoCameraPath();
     setCameraPath(videoCameraPath);
-    setTime(videoCameraPath.isEmpty() 
+    setTime(videoCameraPath.isEmpty()
         ? this.home.getCamera().getTime()
         : videoCameraPath.get(0).getTime());
     setCeilingLightColor(homeEnvironment.getCeillingLightColor());
   }
-  
+
   /**
    * Sets the aspect ratio of the video.
    */
@@ -159,10 +161,10 @@ public class VideoController implements Controller {
       this.aspectRatio = aspectRatio;
       this.propertyChangeSupport.firePropertyChange(Property.ASPECT_RATIO.name(), oldAspectRatio, aspectRatio);
       this.home.getEnvironment().setVideoAspectRatio(this.aspectRatio);
-      setHeight(Math.round(width / this.aspectRatio.getValue()), false);
+      setHeight(Math.round(this.width / this.aspectRatio.getValue()), false);
     }
   }
-  
+
   /**
    * Returns the aspect ratio of the video.
    */
@@ -181,7 +183,7 @@ public class VideoController implements Controller {
       this.home.getEnvironment().setVideoFrameRate(this.frameRate);
     }
   }
-  
+
   /**
    * Returns the frame rate of the video.
    */
@@ -195,7 +197,7 @@ public class VideoController implements Controller {
   public void setWidth(int width) {
     setWidth(width, true);
   }
-  
+
   private void setWidth(int width, boolean updateHeight) {
     if (this.width != width) {
       int oldWidth = this.width;
@@ -207,7 +209,7 @@ public class VideoController implements Controller {
       this.home.getEnvironment().setVideoWidth(this.width);
     }
   }
-  
+
   /**
    * Returns the width of the video.
    */
@@ -221,7 +223,7 @@ public class VideoController implements Controller {
   public void setHeight(int height) {
     setHeight(height, true);
   }
-  
+
   private void setHeight(int height, boolean updateWidth) {
     if (this.height != height) {
       int oldHeight = this.height;
@@ -232,7 +234,7 @@ public class VideoController implements Controller {
       }
     }
   }
-  
+
   /**
    * Returns the height of the video.
    */
@@ -251,12 +253,33 @@ public class VideoController implements Controller {
       this.home.getEnvironment().setVideoQuality(this.quality);
     }
   }
-  
+
   /**
    * Returns the rendering quality of the video.
    */
   public int getQuality() {
     return this.quality;
+  }
+
+  /**
+   * Sets the preferred speed of movements in the video in m/s.
+   * @since 6.0
+   */
+  public void setSpeed(float speed) {
+    if (this.speed != speed) {
+      float oldSpeed = this.speed;
+      this.speed = speed;
+      this.propertyChangeSupport.firePropertyChange(Property.SPEED.name(), oldSpeed, speed);
+      this.home.getEnvironment().setVideoSpeed(this.speed);
+    }
+  }
+
+  /**
+   * Returns the preferred speed of movements in the video in m/s.
+   * @since 6.0
+   */
+  public float getSpeed() {
+    return this.speed;
   }
 
   /**
@@ -272,7 +295,7 @@ public class VideoController implements Controller {
   public List<Camera> getCameraPath() {
     return this.cameraPath;
   }
-  
+
   /**
    * Sets the camera locations of the video.
    */
@@ -296,7 +319,7 @@ public class VideoController implements Controller {
       this.home.getCamera().setTime(time);
     }
   }
-  
+
   /**
    * Returns the edited time in UTC time zone.
    */
@@ -315,7 +338,7 @@ public class VideoController implements Controller {
       this.home.getEnvironment().setCeillingLightColor(ceilingLightColor);
     }
   }
-  
+
   /**
    * Returns the edited ceiling light color.
    */
@@ -325,7 +348,7 @@ public class VideoController implements Controller {
 
   /**
    * Controls the change of value of a visual property in home.
-   * @deprecated {@link #setVisualProperty(String, Object) setVisualProperty} should be replaced by a call to 
+   * @deprecated {@link #setVisualProperty(String, Object) setVisualProperty} should be replaced by a call to
    * {@link #setHomeProperty(String, String) setHomeProperty} to ensure the property can be easily saved and read.
    */
   public void setVisualProperty(String propertyName,

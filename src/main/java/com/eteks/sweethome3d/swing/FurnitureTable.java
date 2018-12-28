@@ -46,6 +46,7 @@ import java.io.Writer;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.InvocationTargetException;
 import java.math.BigDecimal;
+import java.security.AccessControlException;
 import java.text.DecimalFormat;
 import java.text.Format;
 import java.text.NumberFormat;
@@ -119,16 +120,16 @@ import com.eteks.sweethome3d.model.SelectionListener;
 import com.eteks.sweethome3d.model.UserPreferences;
 import com.eteks.sweethome3d.tools.OperatingSystem;
 import com.eteks.sweethome3d.tools.ResourceURLContent;
-import com.eteks.sweethome3d.viewcontroller.ExportableView;
 import com.eteks.sweethome3d.viewcontroller.FurnitureController;
-import com.eteks.sweethome3d.viewcontroller.TransferableView;
+import com.eteks.sweethome3d.viewcontroller.FurnitureView;
 
 /**
  * A table displaying home furniture.
  * @author Emmanuel Puybaret
  */
-public class FurnitureTable extends JTable implements TransferableView, ExportableView, Printable {
+public class FurnitureTable extends JTable implements FurnitureView, Printable {
   private static final String EXPANDED_ROWS_VISUAL_PROPERTY = "com.eteks.sweethome3d.SweetHome3D.ExpandedGroups";
+  private static final String COLUMN_WIDTHS_VISUAL_PROPERTY = "com.eteks.sweethome3d.SweetHome3D.ColumnWidths";
 
   private UserPreferences        preferences;
   private ListSelectionListener  tableSelectionListener;
@@ -151,7 +152,7 @@ public class FurnitureTable extends JTable implements TransferableView, Exportab
    * that displays furniture of <code>home</code>.
    */
   public FurnitureTable(Home home, UserPreferences preferences,
-                       FurnitureController controller) {
+                        FurnitureController controller) {
     this.preferences = preferences;
     float resolutionScale = SwingTools.getResolutionScale();
     if (resolutionScale != 1) {
@@ -160,7 +161,7 @@ public class FurnitureTable extends JTable implements TransferableView, Exportab
     }
     setModel(new FurnitureTreeTableModel(home));
     setColumnModel(new FurnitureTableColumnModel(home, preferences));
-    updateTableColumnsWidth(0);
+    updateTableColumnsWidth(home, 0);
     updateExpandedRows(home);
     updateTableSelectedFurniture(home);
     // Add listeners to model
@@ -360,28 +361,53 @@ public class FurnitureTable extends JTable implements TransferableView, Exportab
   /**
    * Updates table columns width from the content of its cells.
    */
-  private void updateTableColumnsWidth(int additionalSpacing) {
+  private void updateTableColumnsWidth(Home home, int additionalSpacing) {
+    final TableColumnModel columnModel = getColumnModel();
+    int [] preferredColumnWidths = null;
+    if (home != null
+        && home.getProperty(COLUMN_WIDTHS_VISUAL_PROPERTY) != null) {
+      // Retrieve column widths
+      String [] columWidths = home.getProperty(COLUMN_WIDTHS_VISUAL_PROPERTY).split(",");
+      if (columWidths.length == columnModel.getColumnCount()) {
+        preferredColumnWidths = new int [columWidths.length];
+        for (int columnIndex = 0, n = columnModel.getColumnCount(); columnIndex < n; columnIndex++) {
+          try {
+            int columnWidth = Integer.parseInt(columWidths [columnIndex]);
+            preferredColumnWidths [columnIndex] = columnWidth;
+          } catch (NumberFormatException ex) {
+            preferredColumnWidths = null;
+            break;
+          }
+        }
+      }
+    }
+
     int intercellWidth = getIntercellSpacing().width + additionalSpacing;
-    TableColumnModel columnModel = getColumnModel();
     TableModel tableModel = getModel();
     for (int columnIndex = 0, n = columnModel.getColumnCount(); columnIndex < n; columnIndex++) {
       TableColumn column = columnModel.getColumn(columnIndex);
       int modelColumnIndex = convertColumnIndexToModel(columnIndex);
-      int preferredWidth = column.getHeaderRenderer().getTableCellRendererComponent(
-          this, column.getHeaderValue(), false, false, -1, columnIndex).getPreferredSize().width;
-      int rowCount = tableModel.getRowCount();
-      if (rowCount > 0) {
-        for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-          preferredWidth = Math.max(preferredWidth,
-              column.getCellRenderer().getTableCellRendererComponent(
-                  this, tableModel.getValueAt(rowIndex, modelColumnIndex), false, false, -1, columnIndex).
-                      getPreferredSize().width);
+      int preferredWidth;
+      if (preferredColumnWidths == null) {
+        preferredWidth = column.getHeaderRenderer().getTableCellRendererComponent(
+            this, column.getHeaderValue(), false, false, -1, columnIndex).getPreferredSize().width;
+        int rowCount = tableModel.getRowCount();
+        if (rowCount > 0) {
+          for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+            preferredWidth = Math.max(preferredWidth,
+                column.getCellRenderer().getTableCellRendererComponent(
+                    this, tableModel.getValueAt(rowIndex, modelColumnIndex), false, false, -1, columnIndex).
+                        getPreferredSize().width);
+          }
+        } else {
+          preferredWidth = Math.max(preferredWidth, column.getPreferredWidth());
         }
+        preferredWidth += intercellWidth;
       } else {
-        preferredWidth = Math.max(preferredWidth, column.getPreferredWidth());
+        preferredWidth = preferredColumnWidths [columnIndex];
       }
-      column.setPreferredWidth(preferredWidth + intercellWidth);
-      column.setWidth(preferredWidth + intercellWidth);
+      column.setPreferredWidth(preferredWidth);
+      column.setWidth(preferredWidth);
     }
   }
 
@@ -550,10 +576,10 @@ public class FurnitureTable extends JTable implements TransferableView, Exportab
    * and its header when unit or language changes.
    */
   private void addUserPreferencesListener(UserPreferences preferences) {
-    preferences.addPropertyChangeListener(
-        UserPreferences.Property.UNIT, new UserPreferencesChangeListener(this));
-    preferences.addPropertyChangeListener(
-        UserPreferences.Property.LANGUAGE, new UserPreferencesChangeListener(this));
+    UserPreferencesChangeListener preferencesListener = new UserPreferencesChangeListener(this);
+    preferences.addPropertyChangeListener(UserPreferences.Property.LANGUAGE, preferencesListener);
+    preferences.addPropertyChangeListener(UserPreferences.Property.UNIT, preferencesListener);
+    preferences.addPropertyChangeListener(UserPreferences.Property.CURRENCY, preferencesListener);
   }
 
   /**
@@ -726,6 +752,26 @@ public class FurnitureTable extends JTable implements TransferableView, Exportab
         public void columnSelectionChanged(ListSelectionEvent ev) {
         }
       });
+
+    // Track column width changes
+    PropertyChangeListener columnWidthListener = new PropertyChangeListener() {
+        public void propertyChange(PropertyChangeEvent ev) {
+          if ("width".equals(ev.getPropertyName())) {
+            StringBuilder columnWidths = new StringBuilder();
+            for (int i = 0, n = getColumnModel().getColumnCount(); i < n; i++) {
+              if (columnWidths.length() != 0) {
+                columnWidths.append(',');
+              }
+              columnWidths.append(getColumnModel().getColumn(i).getWidth());
+            }
+            controller.setHomeProperty(COLUMN_WIDTHS_VISUAL_PROPERTY, columnWidths.toString());
+          }
+        }
+      };
+    for (int columnIndex = 0, n = columnModel.getColumnCount(); columnIndex < n; columnIndex++) {
+      TableColumn column = getColumnModel().getColumn(columnIndex);
+      column.addPropertyChangeListener(columnWidthListener);
+    }
   }
 
   /**
@@ -801,9 +847,9 @@ public class FurnitureTable extends JTable implements TransferableView, Exportab
       setColumnModel(printableColumnModel);
       if (OperatingSystem.isWindows()) {
         // Add 3 pixels to columns to get a correct rendering
-        updateTableColumnsWidth(3);
+        updateTableColumnsWidth(null, 3);
       } else {
-        updateTableColumnsWidth(0);
+        updateTableColumnsWidth(null, 0);
       }
       setGridColor(gridColor);
       Printable printable = getPrintable(PrintMode.FIT_WIDTH, null, null);
@@ -861,7 +907,19 @@ public class FurnitureTable extends JTable implements TransferableView, Exportab
    */
   public void exportData(OutputStream out, FormatType formatType, Properties settings) throws IOException {
     if  (formatType == FormatType.CSV) {
-      OutputStreamWriter writer = new OutputStreamWriter(out);
+      String csvEncoding;
+      try {
+        csvEncoding = System.getProperty("com.eteks.sweethome3d.CSVEncoding", "UTF-8");
+        // If property is empty, use default Java system encoding
+        if (csvEncoding.length() == 0) {
+          csvEncoding = null;
+        }
+      } catch (AccessControlException ex) {
+        csvEncoding = "UTF-8";
+      }
+      OutputStreamWriter writer = csvEncoding != null
+          ? new OutputStreamWriter(out, csvEncoding)
+          : new OutputStreamWriter(out);
       char fieldSeparator = settings != null
           ? settings.getProperty("fieldSeparator", "\t").charAt(0)
           : '\t';
@@ -893,8 +951,7 @@ public class FurnitureTable extends JTable implements TransferableView, Exportab
     writer.write(System.getProperty("line.separator"));
   }
 
-  private void exportRowToCSV(Writer writer, char fieldSeparator, int rowIndex)
-      throws IOException {
+  private void exportRowToCSV(Writer writer, char fieldSeparator, int rowIndex) throws IOException {
     TableModel model = getModel();
     HomePieceOfFurniture copiedPiece = (HomePieceOfFurniture)model.getValueAt(rowIndex, 0);
     // Force format for sizes to always display decimals
@@ -1036,7 +1093,7 @@ public class FurnitureTable extends JTable implements TransferableView, Exportab
   /**
    * Sets the filter applied to the furniture displayed in this table.
    */
-  public void setFurnitureFilter(FurnitureTable.FurnitureFilter filter) {
+  public void setFurnitureFilter(FurnitureFilter filter) {
     FurnitureTreeTableModel tableModel = (FurnitureTreeTableModel)getModel();
     tableModel.setFurnitureFilter(filter);
   }
@@ -1044,7 +1101,7 @@ public class FurnitureTable extends JTable implements TransferableView, Exportab
   /**
    * Returns the filter applied to the furniture displayed in this table.
    */
-  public FurnitureTable.FurnitureFilter getFurnitureFilter() {
+  public FurnitureFilter getFurnitureFilter() {
     FurnitureTreeTableModel tableModel = (FurnitureTreeTableModel)getModel();
     return tableModel.getFurnitureFilter();
   }
@@ -1089,6 +1146,7 @@ public class FurnitureTable extends JTable implements TransferableView, Exportab
           new PropertyChangeListener() {
             public void propertyChange(PropertyChangeEvent ev) {
               updateModelColumns(home.getFurnitureVisibleProperties());
+              // Will implicitly change columns width and update COLUMN_WIDTHS_VISUAL_PROPERTY property
             }
           });
     }
@@ -1489,13 +1547,21 @@ public class FurnitureTable extends JTable implements TransferableView, Exportab
       // Renderer super class used to display sizes
       class PriceRenderer extends DefaultTableCellRenderer {
         public Component getTableCellRendererComponent(JTable table,
-             BigDecimal price, String currency, boolean isSelected, boolean hasFocus,
+             BigDecimal price, String currencyCode, boolean isSelected, boolean hasFocus,
              int row, int column) {
-          String defaultCurrency = preferences.getCurrency();
           String value;
-          if (price != null && defaultCurrency != null) {
+          if (price != null) {
             NumberFormat currencyFormat = DecimalFormat.getCurrencyInstance();
-            currencyFormat.setCurrency(Currency.getInstance(currency != null ? currency : defaultCurrency));
+            if (currencyCode == null) {
+              currencyCode = preferences.getCurrency();
+            }
+            try {
+              Currency currency = Currency.getInstance(currencyCode);
+              currencyFormat.setCurrency(currency);
+              currencyFormat.setMaximumFractionDigits(currency.getDefaultFractionDigits());
+            } catch (IllegalArgumentException ex) {
+              // Ignore currency
+            }
             value = currencyFormat.format(price);
           } else {
             value = null;
@@ -1942,7 +2008,7 @@ public class FurnitureTable extends JTable implements TransferableView, Exportab
             public void setBounds(int x, int y, int width, int height) {
               // Avoid renderer component to be wider than the tree
               // to ensure ellipsis is displayed if piece name is too long
-              super.setBounds(x, y, nameRendererTree.getWidth() - x, height); 
+              super.setBounds(x, y, nameRendererTree.getWidth() - x, height);
             }
           };
 
@@ -2152,7 +2218,7 @@ public class FurnitureTable extends JTable implements TransferableView, Exportab
                 } else {
                   int deletionIndex = getPieceOfFurnitureDeletionIndex(piece, home, pieceIndex);
                   if (deletionIndex != -1) {
-                    if (expandedGroups.contains(piece)) { 
+                    if (expandedGroups.contains(piece)) {
                       filterAndSortFurniture();
                     } else {
                       filteredAndSortedFurniture.remove(deletionIndex);
@@ -2482,16 +2548,5 @@ public class FurnitureTable extends JTable implements TransferableView, Exportab
       }
       return false;
     }
-  }
-
-  /**
-   * The super type used to specify how furniture should be filtered in furniture table.
-   */
-  public static interface FurnitureFilter {
-    /**
-     * Returns <code>true</code> if the given <code>piece</code> should be shown,
-     * otherwise returns <code>false</code> if the <code>piece</code> should be hidden.
-     */
-    public abstract boolean include(Home home, HomePieceOfFurniture piece);
   }
 }
